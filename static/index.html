@@ -62,7 +62,7 @@
       'use strict';
       const room_name = document.getElementById('room-name');
       const access = document.getElementById('access');
-      const valid_room_name = /^(\w+)$/;
+      const valid_room_name = /^(\w{1,64})$/;
       room_name.addEventListener('keyup', (event) => {
         if (!room_name.value) return;
         if (!valid_room_name.test(room_name.value)) return;

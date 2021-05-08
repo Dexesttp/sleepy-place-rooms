@@ -99,7 +99,7 @@
         }, message_timeout_value);
       }
 
-      const room_fragment = /^\/room\/(\w+)\/?$/;
+      const room_fragment = /^\/room\/(\w{1,64})\/?$/;
       const room_name_exec = room_fragment.exec(window.location.pathname);
       const room_name = room_name_exec ? room_name_exec[1] : 'unknown';
       room_name_field.textContent = `Room '${room_name}'`;

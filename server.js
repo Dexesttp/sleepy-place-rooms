@@ -32,9 +32,9 @@ fs.watchFile('static/control.html', { interval: 1000 }, () => {
 const rooms = {};
 
 const valid_username_regex = /^[\w ()]+$/;
-const base_room_url_regex = /^\/room\/(\w+)\/?$/;
-const control_room_url_regex = /^\/room\/(\w+)\/control$/;
-const room_websocket_url_regex = /^\/room\/(\w+)\/websocket$/;
+const base_room_url_regex = /^\/room\/(\w{1,64})\/?$/;
+const control_room_url_regex = /^\/room\/(\w{1,64})\/control$/;
+const room_websocket_url_regex = /^\/room\/(\w{1,64})\/websocket$/;
 
 const server = HTTPServer.createServer((request, response) => {
   const control_room_url_result = control_room_url_regex.exec(request.url);
