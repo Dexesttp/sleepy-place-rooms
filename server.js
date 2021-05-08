@@ -2,8 +2,17 @@ const fs = require('fs');
 const HTTPServer = require('http');
 const WebSocket = require('ws');
 
-const index_webpage = fs.readFileSync('static/index.html');
-const room_webpage = fs.readFileSync('static/room.html');
+let index_webpage = fs.readFileSync('static/index.html');
+fs.watchFile('static/index.html', { interval: 1000 }, () => {
+  console.log('Reloaded index.html');
+  index_webpage = fs.readFileSync('static/index.html');
+});
+
+let room_webpage = fs.readFileSync('static/room.html');
+fs.watchFile('static/room.html', { interval: 1000 }, () => {
+  console.log('Reloaded room.html');
+  room_webpage = fs.readFileSync('static/room.html');
+});
 
 const rooms = {};
 
