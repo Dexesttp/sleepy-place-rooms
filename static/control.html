@@ -87,6 +87,13 @@
         float: right;
         width: 45vw;
       }
+      #video {
+        display: fixed;
+        position: fixed;
+        width: 40vw;
+        height: 30vh;
+        object-fit: cover;
+      }
       #screen {
         display: flex;
         align-items: center;
@@ -96,6 +103,7 @@
         height: 30vh;
       }
       #screen-message {
+        z-index: 10;
         opacity: 0;
         transition: opacity 1s;
       }
@@ -128,6 +136,7 @@
     </div>
     <div id="right" class="room-contents">
       <div id="screen">
+        <video id="video" autoplay loop muted playsinline></video>
         <div id="screen-message"></div>
       </div>
       <div id="screen-controls">
@@ -156,10 +165,13 @@
       const room_content_items = Array.from(
         document.getElementsByClassName('room-contents')
       );
+
       const chat_input_field = document.getElementById('chat-input');
       const chat_send_button = document.getElementById('chat-send');
       const chat_output_field = document.getElementById('chat-output');
       const user_list = document.getElementById('user-list');
+
+      const video_screen = document.getElementById('video');
 
       const control_input_field = document.getElementById('control-input');
       const control_send_button = document.getElementById('control-send');
@@ -209,6 +221,7 @@
       for (const item of room_content_items) item.style.display = 'none';
       login_error_field.style.display = 'none';
 
+      let last_video = '';
       function onConnectIfEnter(event) {
         if (event.key === 'Enter') onConnect();
       }
@@ -245,18 +258,23 @@
             login_error_field.style.display = 'block';
             return;
           }
-          if (data.type === 'message') {
-            addMessageToChat(`[${data.username}] ${data.message}`);
-            return;
-          }
-          if (data.type === 'announcement') {
-            addMessageToChat(`[Announce>${data.username}] ${data.message}`);
-            showFadingAnnouncement(data.message);
-            return;
-          }
           if (data.type === 'status') {
             control_lock_checkbox.checked = data.is_control_locked;
             room_lock_checkbox.checked = data.is_all_locked;
+            if (!data.video) {
+              last_video = "";
+              video_screen.pause();
+              video_screen.src = '';
+              video_screen.style.display = 'none';
+              return;
+            }
+            if (last_video !== data.video) {
+              last_video = data.video;
+              video_screen.src = data.video;
+              video_screen.style.display = 'block';
+              video_screen.play();
+              return;
+            }
             return;
           }
           if (data.type === 'user_list') {
@@ -265,6 +283,15 @@
               showedConnectionMessage = true;
             }
             updateUserList(data.users);
+            return;
+          }
+          if (data.type === 'message') {
+            addMessageToChat(`[${data.username}] ${data.message}`);
+            return;
+          }
+          if (data.type === 'announcement') {
+            addMessageToChat(`[Announce>${data.username}] ${data.message}`);
+            showFadingAnnouncement(data.message);
             return;
           }
         };

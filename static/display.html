@@ -52,7 +52,16 @@
         align-items: center;
         justify-content: center;
       }
+      #screen > video {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        object-fit: cover;
+      }
       #screen-message {
+        z-index: 10;
         opacity: 0;
         transition: opacity 1s;
         font-size: 20pt;
@@ -68,10 +77,12 @@
       <button id="connect">Connect</button>
       <span id="login-error"></span>
       <span id="other-links">
-        <a href="/room/">Back to home</a> - <a href="./control">Access the control room</a>
+        <a href="/room/">Back to home</a> -
+        <a href="./control">Access the control room</a>
       </span>
     </div>
     <div id="screen" class="room-contents">
+      <video id="video" autoplay loop muted playsinline></video>
       <div id="screen-message"></div>
     </div>
     <script type="application/javascript">
@@ -80,6 +91,7 @@
       const username_field = document.getElementById('username');
       const login_error_field = document.getElementById('login-error');
       const connect_button = document.getElementById('connect');
+      const video_screen = document.getElementById('video');
       const room_content_items = Array.from(
         document.getElementsByClassName('room-contents')
       );
@@ -106,7 +118,9 @@
       document.title = `${room_name} - Sleepy Rooms`;
       for (const item of room_content_items) item.style.display = 'none';
       login_error_field.style.display = 'none';
+      video_screen.style.display = 'none';
 
+      let last_video = '';
       function onConnectIfEnter(event) {
         if (event.key === 'Enter') onConnect();
       }
@@ -138,6 +152,23 @@
           if (data.type === 'login_rejected') {
             login_error_field.innerHTML = data.reason;
             login_error_field.style.display = 'block';
+            return;
+          }
+          if (data.type === 'status') {
+            if (!data.video) {
+              last_video = '';
+              video_screen.pause();
+              video_screen.src = '';
+              video_screen.style.display = 'none';
+              return;
+            }
+            if (last_video !== data.video) {
+              last_video = data.video;
+              video_screen.src = data.video;
+              video_screen.style.display = 'block';
+              video_screen.play();
+              return;
+            }
             return;
           }
           if (data.type === 'announcement') {

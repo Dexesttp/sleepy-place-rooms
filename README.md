@@ -30,6 +30,10 @@ Server started at http://localhost:18029/room/
 
 And access it via the URL given in the command line.
 
+## Adding backgrounds to your server
+
+Simply add .mp4 files to the `background` directory to allow displaying them in your rooms.
+
 ## Inspiration
 
 Frostguard's "happy-and-safe.place" website, with the same basic idea, now discontinued.

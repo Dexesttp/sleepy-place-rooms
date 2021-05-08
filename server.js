@@ -20,6 +20,10 @@ fs.watchFile('static/control.html', { interval: 1000 }, () => {
   control_webpage = fs.readFileSync('static/control.html');
 });
 
+const default_background_name = fs
+  .readdirSync('background')
+  .filter((f) => f.endsWith('.mp4'))[0];
+
 /** @type {{
   [key: string]: {
     name: room_name,
@@ -27,11 +31,13 @@ fs.watchFile('static/control.html', { interval: 1000 }, () => {
     connections: WebSocket[],
     is_control_locked: boolean,
     is_all_locked: boolean,
+    video: string | null,
   }
 }} */
 const rooms = {};
 
 const valid_username_regex = /^[\w ()]{0,32}$/;
+const image_url_regex = /^\/room\/\$background\/([\w]{1,64}\.mp4)$/;
 const base_room_url_regex = /^\/room\/(\w{1,64})\/?$/;
 const control_room_url_regex = /^\/room\/(\w{1,64})\/control$/;
 const room_websocket_url_regex = /^\/room\/(\w{1,64})\/websocket$/;
@@ -41,10 +47,43 @@ function roomStatus(room_data) {
     type: 'status',
     is_control_locked: room_data.is_control_locked,
     is_all_locked: room_data.is_all_locked,
+    video: room_data.video,
   };
 }
 
 const server = HTTPServer.createServer((request, response) => {
+  const image_url_result = image_url_regex.exec(request.url);
+  if (image_url_result) {
+    const filename = image_url_result[1];
+    const range = request.headers.range;
+    const fileInfo = fs.statSync(`background/${filename}`);
+    if (range) {
+      const parts = range.replace(/bytes=/, '').split('-');
+      const start = parseInt(parts[0], 10);
+      const end = parts[1] ? parseInt(parts[1], 10) : fileInfo.size - 1;
+      const chunksize = end - start + 1;
+      const fileStream = fs.createReadStream(`background/${filename}`, {
+        start: start,
+        end: end,
+      });
+      response.writeHead(206, {
+        'Content-Range': `bytes ${start}-${end}/${fileInfo.size}`,
+        'Accept-Ranges': 'bytes',
+        'Content-Length': chunksize,
+        'Content-Type': 'video/mp4',
+      });
+      fileStream.pipe(response);
+      return;
+    } else {
+      res.writeHead(200, {
+        'Content-Length': fileInfo.size,
+        'Content-Type': 'video/mp4',
+      });
+      const fileStream = fs.createReadStream(`background/${filename}`);
+      fileStream.pipe(res);
+      return;
+    }
+  }
   const control_room_url_result = control_room_url_regex.exec(request.url);
   if (control_room_url_result) {
     const room_name = control_room_url_result[1];
@@ -92,6 +131,9 @@ websocket.on('connection', (ws, socket) => {
       connections: [],
       is_control_locked: false,
       is_all_locked: false,
+      video: default_background_name
+        ? `/room/$background/${default_background_name}`
+        : null,
     };
   }
   const room_data = rooms[room_name];
