@@ -29,6 +29,10 @@ const server = HTTPServer.createServer((request, response) => {
 
 const websocket = new WebSocket.Server({ noServer: true });
 websocket.on('connection', (ws, socket) => {
+  ws.isAlive = true;
+  ws.on('pong', () => {
+    ws.isAlive = true;
+  });
   const room_websocket_url_result = room_websocket_url_regex.exec(socket.url);
   if (!room_websocket_url_result) {
     console.log(`WS Client rejected from url : ${ws.url}`);
@@ -102,6 +106,14 @@ websocket.on('connection', (ws, socket) => {
     }
   });
 });
+
+setInterval(() => {
+  websocket.clients.forEach((ws) => {
+    if (!ws.isAlive) return ws.terminate();
+    ws.isAlive = false;
+    ws.ping();
+  });
+}, 30000);
 
 server.on('upgrade', (request, socket, head) => {
   if (room_websocket_url_regex.test(request.url)) {
