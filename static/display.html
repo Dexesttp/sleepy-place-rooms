@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Sleepy place room</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        background: #111;
+        color: #ccc;
+        font-family: sans-serif;
+      }
+
+      #connection {
+        position: fixed;
+        top: 0;
+        left: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        width: 100vw;
+        height: 100vh;
+      }
+      #room-name {
+        margin: 0;
+        margin-bottom: 10px;
+        font-size: 30pt;
+      }
+
+      #screen {
+        position: fixed;
+        top: 0;
+        left: 0;
+        background: #111;
+        display: flex;
+        width: 100vw;
+        height: 100vh;
+        align-items: center;
+        justify-content: center;
+      }
+      #screen-message {
+        opacity: 0;
+        transition: opacity 1s;
+        font-size: 20pt;
+        font-weight: bold;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="connection">
+      <h2 id="room-name"></h2>
+      <input id="username" type="text" placeholder="username" />
+      <button id="connect">Connect</button>
+      <span id="invalid-username"></span>
+    </div>
+    <div id="screen" class="room-contents">
+      <div id="screen-message"></div>
+    </div>
+    <script type="application/javascript">
+      'use strict';
+      const room_name_field = document.getElementById('room-name');
+      const username_field = document.getElementById('username');
+      const invalid_username_field = document.getElementById(
+        'invalid-username'
+      );
+      const connect_button = document.getElementById('connect');
+      const room_content_items = Array.from(
+        document.getElementsByClassName('room-contents')
+      );
+
+      const screen_message_field = document.getElementById('screen-message');
+
+      let message_timeout_value = 3000;
+      let lastTimeout = -1;
+      function showFadingAnnouncement(message) {
+        screen_message_field.style.opacity = '1.0';
+        screen_message_field.innerHTML = message;
+        if (lastTimeout >= 0) {
+          clearTimeout(lastTimeout);
+        }
+        lastTimeout = setTimeout(() => {
+          screen_message_field.style.opacity = '0.0';
+        }, message_timeout_value);
+      }
+
+      const room_fragment = /^\/room\/(\w+)\/?$/;
+      const room_name_exec = room_fragment.exec(window.location.pathname);
+      const room_name = room_name_exec ? room_name_exec[1] : 'unknown';
+      room_name_field.textContent = `Room '${room_name}'`;
+      document.title = `${room_name} - Sleepy Rooms`;
+      for (const item of room_content_items) item.style.display = 'none';
+      invalid_username_field.style.display = 'none';
+
+      function onConnect() {
+        if (!username_field.value) {
+          return;
+        }
+        const username = username_field.value;
+        connect_button.disabled = true;
+        username_field.disabled = true;
+        invalid_username_field.style.display = 'none';
+        for (const item of room_content_items) item.style.display = 'flex';
+
+        const websocket_protocol =
+          window.location.protocol == 'https:' ? 'wss://' : 'ws://';
+        const websocket_url = `${websocket_protocol}${window.location.host}/room/${room_name}/websocket`;
+        const websocket = new WebSocket(websocket_url);
+        websocket.onopen = () => {
+          websocket.send(
+            JSON.stringify({
+              type: 'user_login',
+              username: username,
+              mode: 'display',
+            })
+          );
+        };
+        websocket.onmessage = (event) => {
+          const data = JSON.parse(event.data);
+          if (data.type === 'login_rejected') {
+            invalid_username_field.innerHTML = data.reason;
+            invalid_username_field.style.display = 'block';
+            return;
+          }
+          if (data.type === 'announcement') {
+            showFadingAnnouncement(data.message);
+            return;
+          }
+        };
+        websocket.onclose = () => {
+          connect_button.disabled = false;
+          username_field.disabled = false;
+          for (const item of room_content_items) item.style.display = 'none';
+          connect_button.addEventListener('click', onConnect);
+          document.removeEventListener('keydown', handleChatInput);
+        };
+        let accumulated_message = '';
+        function handleChatInput(event) {
+          if (event.key.length === 1) accumulated_message += event.key;
+          if (event.key === 'Backspace')
+            accumulated_message = accumulated_message.slice(0, -1);
+          if (event.key === 'Enter') sendChatMessage();
+        }
+        function sendChatMessage() {
+          if (!accumulated_message) return;
+          websocket.send(
+            JSON.stringify({
+              type: 'message',
+              username: username,
+              message: accumulated_message,
+            })
+          );
+          accumulated_message = '';
+        }
+        document.addEventListener('keydown', handleChatInput);
+        connect_button.removeEventListener('click', onConnect);
+      }
+      connect_button.addEventListener('click', onConnect);
+    </script>
+  </body>
+</html>

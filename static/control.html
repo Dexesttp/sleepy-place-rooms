@@ -9,6 +9,19 @@
         padding: 0;
         background: #111;
         color: #ccc;
+        font-family: sans-serif;
+      }
+
+      #connection.connection-centered {
+        position: fixed;
+        top: 0;
+        left: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        width: 100vw;
+        height: 100vh;
       }
 
       #room-name {
@@ -25,9 +38,9 @@
       }
 
       #chat-output {
-        overflow-y: scroll;
         width: 100%;
         height: 50vh;
+        overflow-y: scroll;
         border-top: 1px solid #888;
         border-right: 1px solid #888;
         border-bottom: 1px solid #888;
@@ -47,7 +60,7 @@
         min-width: 100px;
         width: 100%;
         height: 30vh;
-        max-height: 30vh;
+        overflow-y: scroll;
         border-top: 1px solid #888;
         border-right: 1px solid #888;
         border-bottom: 1px solid #888;
@@ -83,16 +96,19 @@
   </head>
 
   <body>
-    <h2 id="room-name"></h2>
-    <div>
+    <div id="connection" class="connection-centered">
+      <h2 id="room-name"></h2>
       <input id="username" type="text" placeholder="username" />
       <button id="connect">Connect</button>
       <span id="invalid-username"></span>
+      <span id="other-links">
+        <a href="/room/">Back to home</a> - <a href=".">Access the display</a>
+      </span>
     </div>
     <div id="left" class="room-contents">
       <div id="chat-output"></div>
       <div id="chat-send-box">
-        <input id="chat-input" type="text" />
+        <input id="chat-input" type="text" placeholder="Send only to control" />
         <button id="chat-send">Send</button>
       </div>
       <div id="user-list-header">List of users:</div>
@@ -103,15 +119,18 @@
         <div id="screen-message"></div>
       </div>
       <div id="screen-controls">
-        <input id="control-input" type="text" />
+        <input id="control-input" type="text" placeholder="Send to everyone" />
         <button id="control-send">Announce</button>
       </div>
     </div>
     <script type="application/javascript">
       'use strict';
+      const connection_field = document.getElementById('connection');
       const room_name_field = document.getElementById('room-name');
       const username_field = document.getElementById('username');
-      const invalid_username_field = document.getElementById('invalid-username');
+      const invalid_username_field = document.getElementById(
+        'invalid-username'
+      );
       const connect_button = document.getElementById('connect');
       const room_content_items = Array.from(
         document.getElementsByClassName('room-contents')
@@ -146,18 +165,23 @@
 
       function updateUserList(users) {
         user_list.innerHTML = '';
-        for (const username of users) {
+        for (const user of users) {
           const user_field = document.createElement('div');
           user_field.className = 'user-entry';
-          user_field.innerText = username;
+          if (user.mode === 'display') {
+            user_field.innerText = `👁 ${user.username}`;
+          } else {
+            user_field.innerText = user.username;
+          }
           user_list.appendChild(user_field);
         }
       }
 
-      const room_fragment = /^\/room\/(\w+)/;
+      const room_fragment = /^\/room\/(\w+)\/control$/;
       const room_name_exec = room_fragment.exec(window.location.pathname);
       const room_name = room_name_exec ? room_name_exec[1] : 'unknown';
-      room_name_field.textContent = room_name;
+      room_name_field.textContent = `Control - Room '${room_name}'`;
+      document.title = `${room_name} - Control - Sleepy Rooms`;
       for (const item of room_content_items) item.style.display = 'none';
       invalid_username_field.style.display = 'none';
 
@@ -170,6 +194,7 @@
         username_field.disabled = true;
         invalid_username_field.style.display = 'none';
         for (const item of room_content_items) item.style.display = 'block';
+        connection_field.className = '';
         updateUserList([]);
 
         const websocket_protocol =
@@ -178,12 +203,16 @@
         const websocket = new WebSocket(websocket_url);
         websocket.onopen = () => {
           websocket.send(
-            JSON.stringify({ type: 'user_login', username: username })
+            JSON.stringify({
+              type: 'user_login',
+              username: username,
+              mode: 'control',
+            })
           );
         };
         websocket.onmessage = (event) => {
           const data = JSON.parse(event.data);
-          if (data.type === 'invalid_username') {
+          if (data.type === 'login_rejected') {
             invalid_username_field.innerHTML = data.reason;
             invalid_username_field.style.display = 'block';
             return;
@@ -205,6 +234,7 @@
         websocket.onclose = () => {
           connect_button.disabled = false;
           username_field.disabled = false;
+          connection_field.className = 'connection-centered';
           chat_output_field.innerHTML = '';
           for (const item of room_content_items) item.style.display = 'none';
           chat_send_button.removeEventListener('click', sendChatMessage);
@@ -215,6 +245,7 @@
           if (event.key === 'Enter') sendChatMessage();
         }
         function sendChatMessage() {
+          if (!chat_input_field.value) return;
           websocket.send(
             JSON.stringify({
               type: 'message',
@@ -231,6 +262,7 @@
           if (event.key === 'Enter') showAnnouncement();
         }
         function showAnnouncement() {
+          if (!control_input_field.value) return;
           websocket.send(
             JSON.stringify({
               type: 'announcement',
