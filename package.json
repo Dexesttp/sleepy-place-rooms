@@ -1,0 +1,18 @@
+{
+  "name": "sleepy-place-rooms",
+  "version": "0.1.0",
+  "description": "The /rooms/ part of sleepy.place",
+  "main": "server.js",
+  "scripts": {
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dexesttp/sleepy-place-rooms.git"
+  },
+  "author": "DexesTTP",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/dexesttp/sleepy-place-rooms/issues"
+  },
+  "homepage": "https://github.com/dexesttp/sleepy-place-rooms#readme"
+}
