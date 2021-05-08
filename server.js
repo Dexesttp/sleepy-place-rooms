@@ -31,7 +31,7 @@ fs.watchFile('static/control.html', { interval: 1000 }, () => {
 }} */
 const rooms = {};
 
-const valid_username_regex = /^[\w ()]+$/;
+const valid_username_regex = /^[\w ()]{0,32}$/;
 const base_room_url_regex = /^\/room\/(\w{1,64})\/?$/;
 const control_room_url_regex = /^\/room\/(\w{1,64})\/control$/;
 const room_websocket_url_regex = /^\/room\/(\w{1,64})\/websocket$/;
