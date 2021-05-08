@@ -11,10 +11,40 @@
         color: #ccc;
       }
 
+      #room-name {
+        margin: 0;
+        padding: 0;
+        font-size: 20pt;
+      }
+
+      #user-list {
+        float: left;
+        min-width: 100px;
+        width: 25vw;
+        height: calc(50vh);
+        max-height: calc(50vh);
+        border-right: 1px solid #888;
+      }
+      #user-list .user-list-header {
+        font-weight: bold;
+      }
+      #user-list .user-entry {
+        border-bottom: 1px solid #888;
+      }
+
       #output {
         overflow-y: scroll;
-        height: 50vh;
-        max-height: 50vh;
+        width: 50vw;
+        height: calc(50vh - 20pt);
+        max-height: calc(50vh - 20pt);
+        border: 1px solid #888;
+      }
+
+      #send-box {
+        width: 50vw;
+        height: 20pt;
+        max-height: 20pt;
+        text-align: center;
       }
     </style>
   </head>
@@ -29,19 +59,24 @@
       <span id="username-taken">Username taken!</span>
     </div>
     <div id="room-contents">
-      <input id="input" type="text" />
-      <button id="send">Send</button>
+      <div id="user-list"></div>
       <div id="output"></div>
+      <div id="send-box">
+        <input id="input" type="text" />
+        <button id="send">Send</button>
+      </div>
     </div>
     <script type="application/javascript">
-      var room_name_field = document.getElementById('room-name');
-      var username_field = document.getElementById('username');
-      var username_taken = document.getElementById('username-taken');
-      var connect_button = document.getElementById('connect');
-      var room_contents = document.getElementById('room-contents');
-      var input_field = document.getElementById('input');
-      var send_button = document.getElementById('send');
-      var output_field = document.getElementById('output');
+      'use strict';
+      const room_name_field = document.getElementById('room-name');
+      const username_field = document.getElementById('username');
+      const username_taken = document.getElementById('username-taken');
+      const connect_button = document.getElementById('connect');
+      const room_contents = document.getElementById('room-contents');
+      const input_field = document.getElementById('input');
+      const send_button = document.getElementById('send');
+      const output_field = document.getElementById('output');
+      const user_list = document.getElementById('user-list');
 
       function addMessage(message) {
         const p = document.createElement('p');
@@ -49,9 +84,20 @@
         output_field.appendChild(p);
       }
 
-      var room_fragment = /^\/room\/(\w+)/;
-      var room_name_exec = room_fragment.exec(window.location.pathname);
-      var room_name = room_name_exec ? room_name_exec[1] : 'unknown';
+      function updateUserList(users) {
+        user_list.innerHTML =
+          '<div class="user-list-header">List of users:</div>';
+        for (const username of users) {
+          const user_field = document.createElement('div');
+          user_field.className = 'user-entry';
+          user_field.innerText = username;
+          user_list.appendChild(user_field);
+        }
+      }
+
+      const room_fragment = /^\/room\/(\w+)/;
+      const room_name_exec = room_fragment.exec(window.location.pathname);
+      const room_name = room_name_exec ? room_name_exec[1] : 'unknown';
       room_name_field.textContent = room_name;
       room_contents.style.display = 'none';
       username_taken.style.display = 'none';
@@ -65,11 +111,12 @@
         username_field.disabled = true;
         username_taken.style.display = 'none';
         room_contents.style.display = 'block';
+        updateUserList([]);
 
-        var websocket_protocol =
+        const websocket_protocol =
           window.location.protocol == 'https:' ? 'wss://' : 'ws://';
-        var websocket_url = `${websocket_protocol}${window.location.host}/room/${room_name}/websocket`;
-        var websocket = new WebSocket(websocket_url);
+        const websocket_url = `${websocket_protocol}${window.location.host}/room/${room_name}/websocket`;
+        const websocket = new WebSocket(websocket_url);
         websocket.onopen = () => {
           websocket.send(
             JSON.stringify({ type: 'user_login', username: username })
@@ -82,7 +129,7 @@
             return;
           }
           if (data.type === 'user_list') {
-            addMessage(`New user list: ${data.users.join(', ')}`);
+            updateUserList(data.users);
             return;
           }
           if (data.type === 'username_taken') {
