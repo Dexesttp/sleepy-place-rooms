@@ -36,6 +36,14 @@ const base_room_url_regex = /^\/room\/(\w{1,64})\/?$/;
 const control_room_url_regex = /^\/room\/(\w{1,64})\/control$/;
 const room_websocket_url_regex = /^\/room\/(\w{1,64})\/websocket$/;
 
+function roomStatus(room_data) {
+  return {
+    type: 'status',
+    is_control_locked: room_data.is_control_locked,
+    is_all_locked: room_data.is_all_locked,
+  };
+}
+
 const server = HTTPServer.createServer((request, response) => {
   const control_room_url_result = control_room_url_regex.exec(request.url);
   if (control_room_url_result) {
@@ -172,6 +180,7 @@ websocket.on('connection', (ws, socket) => {
         connection.send(
           JSON.stringify({ type: 'user_list', users: room_data.users })
         );
+        connection.send(JSON.stringify(roomStatus(room_data)));
       }
       return;
     }
@@ -206,6 +215,28 @@ websocket.on('connection', (ws, socket) => {
             message: data.message,
           })
         );
+      }
+    }
+    if (data.type === 'control_lock') {
+      if (data.username !== user_info.username) return;
+      if (user_info.mode !== 'control') return;
+      console.log(
+        `[${room_name}/$control] ${data.username} lock = ${!!data.value}`
+      );
+      room_data.is_control_locked = !!data.value;
+      for (const connection of room_data.connections) {
+        connection.send(JSON.stringify(roomStatus(room_data)));
+      }
+    }
+    if (data.type === 'room_lock') {
+      if (data.username !== user_info.username) return;
+      if (user_info.mode !== 'control') return;
+      console.log(
+        `[${room_name}/$room] ${data.username} lock = ${!!data.value}`
+      );
+      room_data.is_all_locked = !!data.value;
+      for (const connection of room_data.connections) {
+        connection.send(JSON.stringify(roomStatus(room_data)));
       }
     }
   });

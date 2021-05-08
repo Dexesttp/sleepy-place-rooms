@@ -134,6 +134,17 @@
         <input id="control-input" type="text" placeholder="Send to everyone" />
         <button id="control-send">Announce</button>
       </div>
+      <div id="room-controls">
+        <label>
+          <input id="control-lock" type="checkbox" />
+          Lock control access
+        </label>
+        <label>
+          <input id="room-lock" type="checkbox" />
+          Lock the room
+        </label>
+        <br />
+      </div>
     </div>
     <script type="application/javascript">
       'use strict';
@@ -153,6 +164,9 @@
       const control_input_field = document.getElementById('control-input');
       const control_send_button = document.getElementById('control-send');
       const screen_message_field = document.getElementById('screen-message');
+
+      const control_lock_checkbox = document.getElementById('control-lock');
+      const room_lock_checkbox = document.getElementById('room-lock');
 
       function addMessageToChat(message) {
         const message_content = document.createElement('div');
@@ -240,6 +254,11 @@
             showFadingAnnouncement(data.message);
             return;
           }
+          if (data.type === 'status') {
+            control_lock_checkbox.checked = data.is_control_locked;
+            room_lock_checkbox.checked = data.is_all_locked;
+            return;
+          }
           if (data.type === 'user_list') {
             if (!showedConnectionMessage) {
               addMessageToChat('[connected to live feed]');
@@ -262,6 +281,11 @@
             showAnnouncementIfEnter
           );
           control_send_button.removeEventListener('click', showAnnouncement);
+          control_lock_checkbox.removeEventListener(
+            'change',
+            onControlLockChanged
+          );
+          room_lock_checkbox.removeEventListener('change', onRoomLockChanged);
           username_field.addEventListener('keyup', onConnectIfEnter);
           connect_button.addEventListener('click', onConnect);
         };
@@ -296,8 +320,28 @@
           );
           control_input_field.value = '';
         }
+        function onControlLockChanged() {
+          websocket.send(
+            JSON.stringify({
+              type: 'control_lock',
+              username: username,
+              value: !!control_lock_checkbox.checked,
+            })
+          );
+        }
+        function onRoomLockChanged() {
+          websocket.send(
+            JSON.stringify({
+              type: 'room_lock',
+              username: username,
+              value: !!room_lock_checkbox.checked,
+            })
+          );
+        }
         control_input_field.addEventListener('keyup', showAnnouncementIfEnter);
         control_send_button.addEventListener('click', showAnnouncement);
+        control_lock_checkbox.addEventListener('change', onControlLockChanged);
+        room_lock_checkbox.addEventListener('change', onRoomLockChanged);
         username_field.removeEventListener('keyup', onConnectIfEnter);
         connect_button.removeEventListener('click', onConnect);
       }
