@@ -143,8 +143,12 @@
           output_field.innerHTML = '';
           room_contents.style.display = 'none';
           send_button.removeEventListener('click', sendMessage);
+          input_field.removeEventListener('keyup', sendMessageIfEnter);
           connect_button.addEventListener('click', onConnect);
         };
+        function sendMessageIfEnter(event) {
+          if (event.key === 'Enter') sendMessage();
+        }
         function sendMessage() {
           websocket.send(
             JSON.stringify({
@@ -156,6 +160,8 @@
           input_field.value = '';
         }
         send_button.addEventListener('click', sendMessage);
+        input_field.addEventListener('keyup', sendMessageIfEnter);
+        connect_button.removeEventListener('click', onConnect);
       }
       connect_button.addEventListener('click', onConnect);
     </script>
