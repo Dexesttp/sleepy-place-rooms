@@ -87,7 +87,7 @@
     <div>
       <input id="username" type="text" placeholder="username" />
       <button id="connect">Connect</button>
-      <span id="username-taken">Username taken!</span>
+      <span id="invalid-username"></span>
     </div>
     <div id="left" class="room-contents">
       <div id="chat-output"></div>
@@ -111,7 +111,7 @@
       'use strict';
       const room_name_field = document.getElementById('room-name');
       const username_field = document.getElementById('username');
-      const username_taken = document.getElementById('username-taken');
+      const invalid_username_field = document.getElementById('invalid-username');
       const connect_button = document.getElementById('connect');
       const room_content_items = Array.from(
         document.getElementsByClassName('room-contents')
@@ -159,7 +159,7 @@
       const room_name = room_name_exec ? room_name_exec[1] : 'unknown';
       room_name_field.textContent = room_name;
       for (const item of room_content_items) item.style.display = 'none';
-      username_taken.style.display = 'none';
+      invalid_username_field.style.display = 'none';
 
       function onConnect() {
         if (!username_field.value) {
@@ -168,7 +168,7 @@
         const username = username_field.value;
         connect_button.disabled = true;
         username_field.disabled = true;
-        username_taken.style.display = 'none';
+        invalid_username_field.style.display = 'none';
         for (const item of room_content_items) item.style.display = 'block';
         updateUserList([]);
 
@@ -183,6 +183,11 @@
         };
         websocket.onmessage = (event) => {
           const data = JSON.parse(event.data);
+          if (data.type === 'invalid_username') {
+            invalid_username_field.innerHTML = data.reason;
+            invalid_username_field.style.display = 'block';
+            return;
+          }
           if (data.type === 'message') {
             addMessageToChat(`[${data.username}] ${data.message}`);
             return;
@@ -194,10 +199,6 @@
           }
           if (data.type === 'user_list') {
             updateUserList(data.users);
-            return;
-          }
-          if (data.type === 'username_taken') {
-            username_taken.style.display = 'block';
             return;
           }
         };

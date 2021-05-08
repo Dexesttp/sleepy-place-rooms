@@ -16,6 +16,7 @@ fs.watchFile('static/room.html', { interval: 1000 }, () => {
 
 const rooms = {};
 
+const valid_username_regex = /^[\w ()]+$/;
 const base_room_url_regex = /^\/room\/(\w+)$/;
 const room_websocket_url_regex = /^\/room\/(\w+)\/websocket$/;
 
@@ -44,7 +45,7 @@ websocket.on('connection', (ws, socket) => {
   });
   const room_websocket_url_result = room_websocket_url_regex.exec(socket.url);
   if (!room_websocket_url_result) {
-    console.log(`WS Client rejected from url : ${ws.url}`);
+    console.log(`[$UNK/$connection] Client rejected from ${ws.url}`);
     ws.close();
     return;
   }
@@ -59,17 +60,33 @@ websocket.on('connection', (ws, socket) => {
   const room_data = rooms[room_name];
   let username = null;
 
-  console.log(`WS Client connected to room : ${room_name}`);
+  console.log(`[${room_name}/$connection] Client connected`);
   ws.on('message', (raw_data) => {
     const data = JSON.parse(raw_data);
     if (data.type == 'user_login') {
       if (username) return;
+      if (!valid_username_regex.test(data.username)) {
+        console.log(`[${room_name}/$login] Invalid proposed username`);
+        ws.send(
+          JSON.stringify({
+            type: 'invalid_username',
+            reason: 'The username contains invalid characters',
+            username: data.username,
+          })
+        );
+        ws.close();
+        return;
+      }
       if (room_data.users.indexOf(data.username) >= 0) {
         console.log(
-          `WS Client username ${data.username} already taken in room : ${room_name}`
+          `[${room_name}/$login] Duplicate username: ${data.username}`
         );
         ws.send(
-          JSON.stringify({ type: 'username_taken', username: data.username })
+          JSON.stringify({
+            type: 'invalid_username',
+            reason: 'This username is already in use',
+            username: data.username,
+          })
         );
         ws.close();
         return;
@@ -77,7 +94,9 @@ websocket.on('connection', (ws, socket) => {
       username = data.username;
       room_data.users.push(username);
       room_data.connections.push(ws);
-      console.log(`WS Client ${username} registered in room : ${room_name}`);
+      console.log(
+        `[${room_name}/$login] Registered successfully: ${data.username}`
+      );
       for (const connection of room_data.connections) {
         connection.send(
           JSON.stringify({ type: 'user_list', users: room_data.users })
@@ -90,7 +109,7 @@ websocket.on('connection', (ws, socket) => {
     if (data.type === 'message') {
       if (data.username != username) return;
       console.log(
-        `WS Client ${data.username} sent message ${data.message} in room : ${room_name}`
+        `[${room_name}/$message] ${data.username} sent ${data.message}`
       );
       for (const connection of room_data.connections) {
         connection.send(
@@ -105,7 +124,7 @@ websocket.on('connection', (ws, socket) => {
     if (data.type === 'announcement') {
       if (data.username != username) return;
       console.log(
-        `WS Client ${data.username} sent announcement ${data.message} in room : ${room_name}`
+        `[${room_name}/$announcement] ${data.username} sent ${data.message}`
       );
       for (const connection of room_data.connections) {
         connection.send(
@@ -119,8 +138,8 @@ websocket.on('connection', (ws, socket) => {
     }
   });
   ws.on('close', () => {
-    console.log(`WS Client ${username} disconnected from room : ${room_name}`);
     if (!username) return;
+    console.log(`[${room_name}/$close] Client ${username} disconnected`);
     room_data.connections = room_data.connections.filter((c) => c != ws);
     room_data.users = room_data.users.filter((u) => u != username);
     for (const connection of room_data.connections) {
