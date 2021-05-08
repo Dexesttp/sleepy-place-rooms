@@ -66,8 +66,9 @@
         username_taken.style.display = 'none';
         room_contents.style.display = 'block';
 
-        var websocket_url =
-          'ws://' + window.location.host + '/room/' + room_name + '/websocket';
+        var websocket_protocol =
+          window.location.protocol == 'https:' ? 'wss://' : 'ws://';
+        var websocket_url = `${websocket_protocol}${window.location.host}/room/${room_name}/websocket`;
         var websocket = new WebSocket(websocket_url);
         websocket.onopen = () => {
           websocket.send(
