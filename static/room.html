@@ -17,53 +17,94 @@
         font-size: 20pt;
       }
 
-      #user-list {
+      #left {
+        margin: 0;
+        padding: 0;
         float: left;
-        min-width: 100px;
-        width: 25vw;
-        height: calc(50vh);
-        max-height: calc(50vh);
-        border-right: 1px solid #888;
+        width: 49vw;
       }
-      #user-list .user-list-header {
+
+      #chat-output {
+        overflow-y: scroll;
+        width: 100%;
+        height: 50vh;
+        border-top: 1px solid #888;
+        border-right: 1px solid #888;
+        border-bottom: 1px solid #888;
+      }
+      #chat-output div {
+        border-bottom: 1px dashed #888;
+      }
+      #chat-send-box {
+        width: 100%;
+        height: 5vh;
+        text-align: center;
+      }
+      #user-list-header {
         font-weight: bold;
+      }
+      #user-list {
+        min-width: 100px;
+        width: 100%;
+        height: 30vh;
+        max-height: 30vh;
+        border-top: 1px solid #888;
+        border-right: 1px solid #888;
+        border-bottom: 1px solid #888;
       }
       #user-list .user-entry {
         border-bottom: 1px solid #888;
       }
 
-      #output {
-        overflow-y: scroll;
-        width: 50vw;
-        height: calc(50vh - 20pt);
-        max-height: calc(50vh - 20pt);
-        border: 1px solid #888;
+      #right {
+        margin: 0;
+        padding: 0;
+        float: right;
+        width: 45vw;
       }
-
-      #send-box {
-        width: 50vw;
-        height: 20pt;
-        max-height: 20pt;
+      #screen {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid white;
+        width: 40vw;
+        height: 30vh;
+      }
+      #screen-message {
+        opacity: 0;
+        transition: opacity 1s;
+      }
+      #screen-controls {
+        width: 100%;
+        height: 5vh;
         text-align: center;
       }
     </style>
   </head>
 
   <body>
-    <div>
-      <h2 id="room-name"></h2>
-    </div>
+    <h2 id="room-name"></h2>
     <div>
       <input id="username" type="text" placeholder="username" />
       <button id="connect">Connect</button>
       <span id="username-taken">Username taken!</span>
     </div>
-    <div id="room-contents">
+    <div id="left" class="room-contents">
+      <div id="chat-output"></div>
+      <div id="chat-send-box">
+        <input id="chat-input" type="text" />
+        <button id="chat-send">Send</button>
+      </div>
+      <div id="user-list-header">List of users:</div>
       <div id="user-list"></div>
-      <div id="output"></div>
-      <div id="send-box">
-        <input id="input" type="text" />
-        <button id="send">Send</button>
+    </div>
+    <div id="right" class="room-contents">
+      <div id="screen">
+        <div id="screen-message"></div>
+      </div>
+      <div id="screen-controls">
+        <input id="control-input" type="text" />
+        <button id="control-send">Announce</button>
       </div>
     </div>
     <script type="application/javascript">
@@ -72,21 +113,39 @@
       const username_field = document.getElementById('username');
       const username_taken = document.getElementById('username-taken');
       const connect_button = document.getElementById('connect');
-      const room_contents = document.getElementById('room-contents');
-      const input_field = document.getElementById('input');
-      const send_button = document.getElementById('send');
-      const output_field = document.getElementById('output');
+      const room_content_items = Array.from(
+        document.getElementsByClassName('room-contents')
+      );
+      const chat_input_field = document.getElementById('chat-input');
+      const chat_send_button = document.getElementById('chat-send');
+      const chat_output_field = document.getElementById('chat-output');
       const user_list = document.getElementById('user-list');
 
-      function addMessage(message) {
-        const p = document.createElement('p');
-        p.innerHTML = message;
-        output_field.appendChild(p);
+      const control_input_field = document.getElementById('control-input');
+      const control_send_button = document.getElementById('control-send');
+      const screen_message_field = document.getElementById('screen-message');
+
+      function addMessageToChat(message) {
+        const message_content = document.createElement('div');
+        message_content.innerHTML = message;
+        chat_output_field.appendChild(message_content);
+      }
+
+      let message_timeout_value = 3000;
+      let lastTimeout = -1;
+      function showFadingAnnouncement(message) {
+        screen_message_field.style.opacity = '1.0';
+        screen_message_field.innerHTML = message;
+        if (lastTimeout >= 0) {
+          clearTimeout(lastTimeout);
+        }
+        lastTimeout = setTimeout(() => {
+          screen_message_field.style.opacity = '0.0';
+        }, message_timeout_value);
       }
 
       function updateUserList(users) {
-        user_list.innerHTML =
-          '<div class="user-list-header">List of users:</div>';
+        user_list.innerHTML = '';
         for (const username of users) {
           const user_field = document.createElement('div');
           user_field.className = 'user-entry';
@@ -99,7 +158,7 @@
       const room_name_exec = room_fragment.exec(window.location.pathname);
       const room_name = room_name_exec ? room_name_exec[1] : 'unknown';
       room_name_field.textContent = room_name;
-      room_contents.style.display = 'none';
+      for (const item of room_content_items) item.style.display = 'none';
       username_taken.style.display = 'none';
 
       function onConnect() {
@@ -110,7 +169,7 @@
         connect_button.disabled = true;
         username_field.disabled = true;
         username_taken.style.display = 'none';
-        room_contents.style.display = 'block';
+        for (const item of room_content_items) item.style.display = 'block';
         updateUserList([]);
 
         const websocket_protocol =
@@ -125,7 +184,12 @@
         websocket.onmessage = (event) => {
           const data = JSON.parse(event.data);
           if (data.type === 'message') {
-            addMessage(`[${data.username}] ${data.message}`);
+            addMessageToChat(`[${data.username}] ${data.message}`);
+            return;
+          }
+          if (data.type === 'announcement') {
+            addMessageToChat(`${data.username}>>> ${data.message}`);
+            showFadingAnnouncement(data.message);
             return;
           }
           if (data.type === 'user_list') {
@@ -140,27 +204,43 @@
         websocket.onclose = () => {
           connect_button.disabled = false;
           username_field.disabled = false;
-          output_field.innerHTML = '';
-          room_contents.style.display = 'none';
-          send_button.removeEventListener('click', sendMessage);
-          input_field.removeEventListener('keyup', sendMessageIfEnter);
+          chat_output_field.innerHTML = '';
+          for (const item of room_content_items) item.style.display = 'none';
+          chat_send_button.removeEventListener('click', sendChatMessage);
+          chat_input_field.removeEventListener('keyup', sendChatMessageIfEnter);
           connect_button.addEventListener('click', onConnect);
         };
-        function sendMessageIfEnter(event) {
-          if (event.key === 'Enter') sendMessage();
+        function sendChatMessageIfEnter(event) {
+          if (event.key === 'Enter') sendChatMessage();
         }
-        function sendMessage() {
+        function sendChatMessage() {
           websocket.send(
             JSON.stringify({
               type: 'message',
               username: username,
-              message: input_field.value,
+              message: chat_input_field.value,
             })
           );
-          input_field.value = '';
+          chat_input_field.value = '';
         }
-        send_button.addEventListener('click', sendMessage);
-        input_field.addEventListener('keyup', sendMessageIfEnter);
+        chat_input_field.addEventListener('keyup', sendChatMessageIfEnter);
+        chat_send_button.addEventListener('click', sendChatMessage);
+
+        function showAnnouncementIfEnter(event) {
+          if (event.key === 'Enter') showAnnouncement();
+        }
+        function showAnnouncement() {
+          websocket.send(
+            JSON.stringify({
+              type: 'announcement',
+              username: username,
+              message: control_input_field.value,
+            })
+          );
+          control_input_field.value = '';
+        }
+        control_input_field.addEventListener('keyup', showAnnouncementIfEnter);
+        control_send_button.addEventListener('click', showAnnouncement);
         connect_button.removeEventListener('click', onConnect);
       }
       connect_button.addEventListener('click', onConnect);

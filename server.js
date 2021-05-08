@@ -102,6 +102,21 @@ websocket.on('connection', (ws, socket) => {
         );
       }
     }
+    if (data.type === 'announcement') {
+      if (data.username != username) return;
+      console.log(
+        `WS Client ${data.username} sent announcement ${data.message} in room : ${room_name}`
+      );
+      for (const connection of room_data.connections) {
+        connection.send(
+          JSON.stringify({
+            type: 'announcement',
+            username: data.username,
+            message: data.message,
+          })
+        );
+      }
+    }
   });
   ws.on('close', () => {
     console.log(`WS Client ${username} disconnected from room : ${room_name}`);
