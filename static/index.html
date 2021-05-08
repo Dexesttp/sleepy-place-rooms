@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Sleepy place room</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        background: #111;
+        color: #ccc;
+      }
+    </style>
+  </head>
+
+  <body>
+    <input id="room_name" type="text" placeholder="room name" />
+    <button id="access">Access room</button>
+    <script type="application/javascript">
+      var room_name = document.getElementById('room_name');
+      var access = document.getElementById('access');
+      access.onclick = () => {
+        window.location = '/room/' + room_name.value;
+      };
+    </script>
+  </body>
+</html>

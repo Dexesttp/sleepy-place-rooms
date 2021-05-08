@@ -25,7 +25,7 @@ Finally, start the server:
 
 ```bash
 $ npm start
-Server started at http://localhost:18029/
+Server started at http://localhost:18029/room/
 ```
 
 And access it via the URL given in the command line.

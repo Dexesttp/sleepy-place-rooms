@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Sleepy place room</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        background: #111;
+        color: #ccc;
+      }
+
+      #output {
+        overflow-y: scroll;
+        height: 50vh;
+        max-height: 50vh;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div>
+      <h2 id="room-name"></h2>
+    </div>
+    <div>
+      <input id="username" type="text" placeholder="username" />
+      <button id="connect">Connect</button>
+      <span id="username-taken">Username taken!</span>
+    </div>
+    <div id="room-contents">
+      <input id="input" type="text" />
+      <button id="send">Send</button>
+      <div id="output"></div>
+    </div>
+    <script type="application/javascript">
+      var room_name_field = document.getElementById('room-name');
+      var username_field = document.getElementById('username');
+      var username_taken = document.getElementById('username-taken');
+      var connect_button = document.getElementById('connect');
+      var room_contents = document.getElementById('room-contents');
+      var input_field = document.getElementById('input');
+      var send_button = document.getElementById('send');
+      var output_field = document.getElementById('output');
+
+      function addMessage(message) {
+        const p = document.createElement('p');
+        p.innerHTML = message;
+        output_field.appendChild(p);
+      }
+
+      var room_fragment = /^\/room\/(\w+)/;
+      var room_name_exec = room_fragment.exec(window.location.pathname);
+      var room_name = room_name_exec ? room_name_exec[1] : 'unknown';
+      room_name_field.textContent = room_name;
+      room_contents.style.display = 'none';
+      username_taken.style.display = 'none';
+
+      function onConnect() {
+        if (!username_field.value) {
+          return;
+        }
+        const username = username_field.value;
+        connect_button.disabled = true;
+        username_field.disabled = true;
+        username_taken.style.display = 'none';
+        room_contents.style.display = 'block';
+
+        var websocket_url =
+          'ws://' + window.location.host + '/room/' + room_name + '/websocket';
+        var websocket = new WebSocket(websocket_url);
+        websocket.onopen = () => {
+          websocket.send(
+            JSON.stringify({ type: 'user_login', username: username })
+          );
+        };
+        websocket.onmessage = (event) => {
+          const data = JSON.parse(event.data);
+          if (data.type === 'message') {
+            addMessage(`[${data.username}] ${data.message}`);
+            return;
+          }
+          if (data.type === 'user_list') {
+            addMessage(`New user list: ${data.users.join(', ')}`);
+            return;
+          }
+          if (data.type === 'username_taken') {
+            username_taken.style.display = 'block';
+            return;
+          }
+        };
+        websocket.onclose = () => {
+          connect_button.disabled = false;
+          username_field.disabled = false;
+          output_field.innerHTML = '';
+          room_contents.style.display = 'none';
+          send_button.removeEventListener('click', sendMessage);
+          connect_button.addEventListener('click', onConnect);
+        };
+        function sendMessage() {
+          websocket.send(
+            JSON.stringify({
+              type: 'message',
+              username: username,
+              message: input_field.value,
+            })
+          );
+          input_field.value = '';
+        }
+        send_button.addEventListener('click', sendMessage);
+      }
+      connect_button.addEventListener('click', onConnect);
+    </script>
+  </body>
+</html>
