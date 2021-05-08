@@ -9,19 +9,72 @@
         padding: 0;
         background: #111;
         color: #ccc;
+        font-family: sans-serif;
+      }
+      a,
+      a:visited {
+        color: #ccc;
+      }
+
+      input[type='text'],
+      button {
+        margin: 2px;
+        padding: 2px;
+        border-width: 0;
+        border-radius: 5px;
+      }
+
+      #connection {
+        position: fixed;
+        top: 0;
+        left: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        width: 100vw;
+        height: 100vh;
+      }
+      #title {
+        margin: 0;
+        margin-bottom: 10px;
+        font-size: 30pt;
+      }
+
+      #room-name {
+        font-size: 12pt;
+        text-align: center;
+      }
+      #access {
+        font-size: 12pt;
+        text-align: center;
       }
     </style>
   </head>
 
   <body>
-    <input id="room_name" type="text" placeholder="room name" />
-    <button id="access">Access room</button>
+    <div id="connection">
+      <h1 id="title">Sleepy Rooms</h1>
+      <input id="room-name" type="text" placeholder="Enter a room name" />
+      <button id="access">Access room</button>
+    </div>
     <script type="application/javascript">
-      var room_name = document.getElementById('room_name');
-      var access = document.getElementById('access');
-      access.onclick = () => {
+      'use strict';
+      const room_name = document.getElementById('room-name');
+      const access = document.getElementById('access');
+      const valid_room_name = /^(\w+)$/;
+      room_name.addEventListener('keyup', (event) => {
+        if (!room_name.value) return;
+        if (!valid_room_name.test(room_name.value)) return;
+        if (event.key === 'Enter') {
+          window.location = '/room/' + room_name.value + '/control';
+        }
+      });
+      access.addEventListener('click', () => {
+        if (!room_name.value) return;
+        if (!valid_room_name.test(room_name.value)) return;
         window.location = '/room/' + room_name.value + '/control';
-      };
+      });
     </script>
   </body>
 </html>

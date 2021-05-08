@@ -11,6 +11,18 @@
         color: #ccc;
         font-family: sans-serif;
       }
+      a,
+      a:visited {
+        color: #ccc;
+      }
+
+      input[type='text'],
+      button {
+        margin: 2px;
+        padding: 2px;
+        border-width: 0;
+        border-radius: 5px;
+      }
 
       #connection.connection-centered {
         position: fixed;
@@ -100,7 +112,7 @@
       <h2 id="room-name"></h2>
       <input id="username" type="text" placeholder="username" />
       <button id="connect">Connect</button>
-      <span id="invalid-username"></span>
+      <span id="login-error"></span>
       <span id="other-links">
         <a href="/room/">Back to home</a> - <a href=".">Access the display</a>
       </span>
@@ -128,9 +140,7 @@
       const connection_field = document.getElementById('connection');
       const room_name_field = document.getElementById('room-name');
       const username_field = document.getElementById('username');
-      const invalid_username_field = document.getElementById(
-        'invalid-username'
-      );
+      const login_error_field = document.getElementById('login-error');
       const connect_button = document.getElementById('connect');
       const room_content_items = Array.from(
         document.getElementsByClassName('room-contents')
@@ -146,7 +156,7 @@
 
       function addMessageToChat(message) {
         const message_content = document.createElement('div');
-        message_content.innerHTML = message;
+        message_content.innerText = message;
         chat_output_field.appendChild(message_content);
       }
 
@@ -154,7 +164,7 @@
       let lastTimeout = -1;
       function showFadingAnnouncement(message) {
         screen_message_field.style.opacity = '1.0';
-        screen_message_field.innerHTML = message;
+        screen_message_field.innerText = message;
         if (lastTimeout >= 0) {
           clearTimeout(lastTimeout);
         }
@@ -183,16 +193,20 @@
       room_name_field.textContent = `Control - Room '${room_name}'`;
       document.title = `${room_name} - Control - Sleepy Rooms`;
       for (const item of room_content_items) item.style.display = 'none';
-      invalid_username_field.style.display = 'none';
+      login_error_field.style.display = 'none';
 
+      function onConnectIfEnter(event) {
+        if (event.key === 'Enter') onConnect();
+      }
       function onConnect() {
         if (!username_field.value) {
           return;
         }
+        let showedConnectionMessage = false;
         const username = username_field.value;
         connect_button.disabled = true;
         username_field.disabled = true;
-        invalid_username_field.style.display = 'none';
+        login_error_field.style.display = 'none';
         for (const item of room_content_items) item.style.display = 'block';
         connection_field.className = '';
         updateUserList([]);
@@ -213,8 +227,8 @@
         websocket.onmessage = (event) => {
           const data = JSON.parse(event.data);
           if (data.type === 'login_rejected') {
-            invalid_username_field.innerHTML = data.reason;
-            invalid_username_field.style.display = 'block';
+            login_error_field.innerHTML = data.reason;
+            login_error_field.style.display = 'block';
             return;
           }
           if (data.type === 'message') {
@@ -222,11 +236,15 @@
             return;
           }
           if (data.type === 'announcement') {
-            addMessageToChat(`${data.username}>>> ${data.message}`);
+            addMessageToChat(`[Announce>${data.username}] ${data.message}`);
             showFadingAnnouncement(data.message);
             return;
           }
           if (data.type === 'user_list') {
+            if (!showedConnectionMessage) {
+              addMessageToChat('[connected to live feed]');
+              showedConnectionMessage = true;
+            }
             updateUserList(data.users);
             return;
           }
@@ -239,6 +257,12 @@
           for (const item of room_content_items) item.style.display = 'none';
           chat_send_button.removeEventListener('click', sendChatMessage);
           chat_input_field.removeEventListener('keyup', sendChatMessageIfEnter);
+          control_input_field.removeEventListener(
+            'keyup',
+            showAnnouncementIfEnter
+          );
+          control_send_button.removeEventListener('click', showAnnouncement);
+          username_field.addEventListener('keyup', onConnectIfEnter);
           connect_button.addEventListener('click', onConnect);
         };
         function sendChatMessageIfEnter(event) {
@@ -274,8 +298,10 @@
         }
         control_input_field.addEventListener('keyup', showAnnouncementIfEnter);
         control_send_button.addEventListener('click', showAnnouncement);
+        username_field.removeEventListener('keyup', onConnectIfEnter);
         connect_button.removeEventListener('click', onConnect);
       }
+      username_field.addEventListener('keyup', onConnectIfEnter);
       connect_button.addEventListener('click', onConnect);
     </script>
   </body>
