@@ -111,6 +111,140 @@ const server = HTTPServer.createServer((request, response) => {
   return;
 });
 
+function handleUserLogin(room_data, user_info, room_name, data, ws) {
+  if (user_info) return user_info;
+  if (data.mode !== 'display' && data.mode !== 'control') {
+    console.log(`[${room_name}/$login] Invalid proposed access mode`);
+    ws.send(
+      JSON.stringify({
+        type: 'login_rejected',
+        reason: "Access can only be granted as 'display' or 'control'",
+        username: data.username,
+      })
+    );
+    ws.close();
+    return null;
+  }
+  if (data.mode === 'control') {
+    if (room_data.is_control_locked) {
+      console.log(
+        `[${room_name}/$login] Invalid control access to locked room`
+      );
+      ws.send(
+        JSON.stringify({
+          type: 'login_rejected',
+          reason: 'The room is locked',
+          username: data.username,
+        })
+      );
+      ws.close();
+      return null;
+    }
+  }
+  if (room_data.is_all_locked) {
+    console.log(`[${room_name}/$login] Invalid access attempt to locked room`);
+    ws.send(
+      JSON.stringify({
+        type: 'login_rejected',
+        reason: 'The room is locked',
+        username: data.username,
+      })
+    );
+    ws.close();
+    return null;
+  }
+  if (!valid_username_regex.test(data.username)) {
+    console.log(`[${room_name}/$login] Invalid proposed username`);
+    ws.send(
+      JSON.stringify({
+        type: 'login_rejected',
+        reason: 'The username contains invalid characters',
+        username: data.username,
+      })
+    );
+    ws.close();
+    return null;
+  }
+  if (room_data.users.some((u) => u.username === data.username)) {
+    console.log(`[${room_name}/$login] Duplicate username: ${data.username}`);
+    ws.send(
+      JSON.stringify({
+        type: 'login_rejected',
+        reason: 'This username is already in use',
+        username: data.username,
+      })
+    );
+    ws.close();
+    return null;
+  }
+  user_info = { username: data.username, mode: data.mode };
+  room_data.users.push(user_info);
+  room_data.connections.push(ws);
+  console.log(
+    `[${room_name}/$login] Registered successfully: ${data.username}`
+  );
+  for (const connection of room_data.connections) {
+    connection.send(
+      JSON.stringify({ type: 'user_list', users: room_data.users })
+    );
+    connection.send(JSON.stringify(roomStatus(room_data)));
+  }
+  return user_info;
+}
+
+function handleUserSendMessage(room_data, user_info, room_name, data, ws) {
+  if (data.username !== user_info.username) return;
+  console.log(`[${room_name}/$message] ${data.username} sent ${data.message}`);
+  for (const connection of room_data.connections) {
+    connection.send(
+      JSON.stringify({
+        type: 'message',
+        username: data.username,
+        message: data.message,
+      })
+    );
+  }
+}
+
+function handleUserSendAnnouncement(room_data, user_info, room_name, data, ws) {
+  if (data.username !== user_info.username) return;
+  if (user_info.mode !== 'control') return;
+  console.log(
+    `[${room_name}/$announcement] ${data.username} sent ${data.message}`
+  );
+  for (const connection of room_data.connections) {
+    connection.send(
+      JSON.stringify({
+        type: 'announcement',
+        username: data.username,
+        message: data.message,
+      })
+    );
+  }
+}
+
+function handleUserSetControlLock(room_data, user_info, room_name, data, ws) {
+  if (data.username !== user_info.username) return;
+  if (user_info.mode !== 'control') return;
+  console.log(
+    `[${room_name}/$control] ${data.username} lock = ${!!data.value}`
+  );
+  room_data.is_control_locked = !!data.value;
+  for (const connection of room_data.connections) {
+    connection.send(JSON.stringify(roomStatus(room_data)));
+  }
+}
+
+function handleUserSetRoomLock(room_data, user_info, room_name, data, ws) {
+  if (data.username !== user_info.username) return;
+  if (user_info.mode !== 'control') return;
+  console.log(`[${room_name}/$room] ${data.username} lock = ${!!data.value}`);
+  room_data.is_all_locked = !!data.value;
+  for (const connection of room_data.connections) {
+    connection.send(JSON.stringify(roomStatus(room_data)));
+  }
+}
+
 const websocket = new WebSocket.Server({ noServer: true });
 websocket.on('connection', (ws, socket) => {
   ws.isAlive = true;
@@ -143,143 +277,26 @@ websocket.on('connection', (ws, socket) => {
   ws.on('message', (raw_data) => {
     const data = JSON.parse(raw_data);
     if (data.type == 'user_login') {
-      if (user_info) return;
-      if (data.mode !== 'display' && data.mode !== 'control') {
-        console.log(`[${room_name}/$login] Invalid proposed access mode`);
-        ws.send(
-          JSON.stringify({
-            type: 'login_rejected',
-            reason: "Access can only be granted as 'display' or 'control'",
-            username: data.username,
-          })
-        );
-        ws.close();
-        return;
-      }
-      if (data.mode === 'control') {
-        if (room_data.is_control_locked) {
-          console.log(
-            `[${room_name}/$login] Invalid control access to locked room`
-          );
-          ws.send(
-            JSON.stringify({
-              type: 'login_rejected',
-              reason: 'The room is locked',
-              username: data.username,
-            })
-          );
-          ws.close();
-          return;
-        }
-      }
-      if (room_data.is_all_locked) {
-        console.log(
-          `[${room_name}/$login] Invalid access attempt to locked room`
-        );
-        ws.send(
-          JSON.stringify({
-            type: 'login_rejected',
-            reason: 'The room is locked',
-            username: data.username,
-          })
-        );
-        ws.close();
-        return;
-      }
-      if (!valid_username_regex.test(data.username)) {
-        console.log(`[${room_name}/$login] Invalid proposed username`);
-        ws.send(
-          JSON.stringify({
-            type: 'login_rejected',
-            reason: 'The username contains invalid characters',
-            username: data.username,
-          })
-        );
-        ws.close();
-        return;
-      }
-      if (room_data.users.some((u) => u.username === data.username)) {
-        console.log(
-          `[${room_name}/$login] Duplicate username: ${data.username}`
-        );
-        ws.send(
-          JSON.stringify({
-            type: 'login_rejected',
-            reason: 'This username is already in use',
-            username: data.username,
-          })
-        );
-        ws.close();
-        return;
-      }
-      user_info = { username: data.username, mode: data.mode };
-      room_data.users.push(user_info);
-      room_data.connections.push(ws);
-      console.log(
-        `[${room_name}/$login] Registered successfully: ${data.username}`
-      );
-      for (const connection of room_data.connections) {
-        connection.send(
-          JSON.stringify({ type: 'user_list', users: room_data.users })
-        );
-        connection.send(JSON.stringify(roomStatus(room_data)));
-      }
+      user_info = handleUserLogin(room_data, user_info, room_name, data, ws);
       return;
     }
 
     if (!user_info) return;
     if (data.type === 'message') {
-      if (data.username !== user_info.username) return;
-      console.log(
-        `[${room_name}/$message] ${data.username} sent ${data.message}`
-      );
-      for (const connection of room_data.connections) {
-        connection.send(
-          JSON.stringify({
-            type: 'message',
-            username: data.username,
-            message: data.message,
-          })
-        );
-      }
+      handleUserSendMessage(room_data, user_info, room_name, data, ws);
+      return;
     }
     if (data.type === 'announcement') {
-      if (data.username !== user_info.username) return;
-      if (user_info.mode !== 'control') return;
-      console.log(
-        `[${room_name}/$announcement] ${data.username} sent ${data.message}`
-      );
-      for (const connection of room_data.connections) {
-        connection.send(
-          JSON.stringify({
-            type: 'announcement',
-            username: data.username,
-            message: data.message,
-          })
-        );
-      }
+      handleUserSendAnnouncement(room_data, user_info, room_name, data, ws);
+      return;
     }
     if (data.type === 'control_lock') {
-      if (data.username !== user_info.username) return;
-      if (user_info.mode !== 'control') return;
-      console.log(
-        `[${room_name}/$control] ${data.username} lock = ${!!data.value}`
-      );
-      room_data.is_control_locked = !!data.value;
-      for (const connection of room_data.connections) {
-        connection.send(JSON.stringify(roomStatus(room_data)));
-      }
+      handleUserSetControlLock(room_data, user_info, room_name, data, ws);
+      return;
     }
     if (data.type === 'room_lock') {
-      if (data.username !== user_info.username) return;
-      if (user_info.mode !== 'control') return;
-      console.log(
-        `[${room_name}/$room] ${data.username} lock = ${!!data.value}`
-      );
-      room_data.is_all_locked = !!data.value;
-      for (const connection of room_data.connections) {
-        connection.send(JSON.stringify(roomStatus(room_data)));
-      }
+      handleUserSetRoomLock(room_data, user_info, room_name, data, ws);
+      return;
     }
   });
   ws.on('close', () => {
