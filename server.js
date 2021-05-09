@@ -15,7 +15,7 @@ fs.watchFile('static/display.html', { interval: 1000 }, () => {
 });
 
 const background_directory = 'background';
-let default_video_path = null;
+let default_background_path = null;
 let background_list = [];
 function reloadBackgroundDirectory() {
   console.log('Reloaded background files');
@@ -31,7 +31,9 @@ function reloadBackgroundDirectory() {
       file_path: `${background_directory}/${file_name}`,
     });
   }
-  default_video_path = background_list[0] ? background_list[0].url_path : null;
+  default_background_path = background_list[0]
+    ? background_list[0].url_path
+    : null;
 }
 fs.watch(background_directory, { recursive: false }, reloadBackgroundDirectory);
 reloadBackgroundDirectory();
@@ -49,7 +51,7 @@ fs.watchFile('static/control.html', { interval: 1000 }, () => {
     connections: WebSocket[],
     is_control_locked: boolean,
     is_all_locked: boolean,
-    video: string | null,
+    background: string | null,
   }
 }} */
 const rooms = {};
@@ -150,7 +152,7 @@ function roomStatus(room_data) {
     type: 'status',
     is_control_locked: room_data.is_control_locked,
     is_all_locked: room_data.is_all_locked,
-    video: room_data.video,
+    video: room_data.background,
     video_choices: background_list.map((b) => ({
       name: b.display_name,
       url: b.url_path,
@@ -274,7 +276,7 @@ function handleUserSetControlLock(room_data, user_info, room_name, data, ws) {
   if (data.username !== user_info.username) return;
   if (user_info.mode !== 'control') return;
   console.log(
-    `[${room_name}/$control] ${data.username} lock = ${!!data.value}`
+    `[${room_name}/$control_lock] ${data.username} set lock = ${!!data.value}`
   );
   room_data.is_control_locked = !!data.value;
   for (const connection of room_data.connections) {
@@ -285,8 +287,33 @@ function handleUserSetControlLock(room_data, user_info, room_name, data, ws) {
 function handleUserSetRoomLock(room_data, user_info, room_name, data, ws) {
   if (data.username !== user_info.username) return;
   if (user_info.mode !== 'control') return;
-  console.log(`[${room_name}/$room] ${data.username} lock = ${!!data.value}`);
+  console.log(
+    `[${room_name}/$room_lock] ${data.username} set lock = ${!!data.value}`
+  );
   room_data.is_all_locked = !!data.value;
+  for (const connection of room_data.connections) {
+    connection.send(JSON.stringify(roomStatus(room_data)));
+  }
+}
+
+function handleUserSetBackground(room_data, user_info, room_name, data, ws) {
+  if (data.username !== user_info.username) return;
+  if (user_info.mode !== 'control') return;
+  if (data.url) {
+    const bg_info = background_list.find((b) => b.url_path === data.url);
+    if (!bg_info) return;
+    if (room_data.background === bg_info.url_path) return;
+    console.log(
+      `[${room_name}/$background] ${data.username} set background = ${bg_info.display_name}`
+    );
+    room_data.background = bg_info.url_path;
+  } else {
+    if (!room_data.background) return;
+    console.log(
+      `[${room_name}/$background] ${data.username} set background = null`
+    );
+    room_data.background = null;
+  }
   for (const connection of room_data.connections) {
     connection.send(JSON.stringify(roomStatus(room_data)));
   }
@@ -312,7 +339,7 @@ websocket.on('connection', (ws, socket) => {
       connections: [],
       is_control_locked: false,
       is_all_locked: false,
-      video: default_video_path,
+      background: default_background_path,
     };
   }
   const room_data = rooms[room_name];
@@ -341,6 +368,10 @@ websocket.on('connection', (ws, socket) => {
     }
     if (data.type === 'room_lock') {
       handleUserSetRoomLock(room_data, user_info, room_name, data, ws);
+      return;
+    }
+    if (data.type === 'background') {
+      handleUserSetBackground(room_data, user_info, room_name, data, ws);
       return;
     }
   });

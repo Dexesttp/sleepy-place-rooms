@@ -148,9 +148,17 @@
           <input id="control-lock" type="checkbox" />
           Lock control access
         </label>
+        <br />
         <label>
           <input id="room-lock" type="checkbox" />
           Lock the room
+        </label>
+        <br />
+        <label>
+          Select the background:
+          <select id="background-choices" name="background-choices">
+            <option value="">No background</option>
+          </select>
         </label>
         <br />
       </div>
@@ -179,6 +187,7 @@
 
       const control_lock_checkbox = document.getElementById('control-lock');
       const room_lock_checkbox = document.getElementById('room-lock');
+      const background_combobox = document.getElementById('background-choices');
 
       function addMessageToChat(message) {
         const message_content = document.createElement('div');
@@ -261,8 +270,14 @@
           if (data.type === 'status') {
             control_lock_checkbox.checked = data.is_control_locked;
             room_lock_checkbox.checked = data.is_all_locked;
+            let computed_html = '<option value="">No background</option>\n';
+            for (const choice of data.video_choices) {
+              const is_selected = choice.url === data.video ? 'selected' : '';
+              computed_html += `<option value="${choice.url}" ${is_selected}>${choice.name}</option>\n`;
+            }
+            background_combobox.innerHTML = computed_html;
             if (!data.video) {
-              last_video = "";
+              last_video = '';
               video_screen.pause();
               video_screen.src = '';
               video_screen.style.display = 'none';
@@ -313,7 +328,12 @@
             onControlLockChanged
           );
           room_lock_checkbox.removeEventListener('change', onRoomLockChanged);
+          background_combobox.removeEventListener(
+            'change',
+            onBackgroundChanged
+          );
           username_field.addEventListener('keyup', onConnectIfEnter);
+          connect_button.addEventListener('click', onConnect);
           connect_button.addEventListener('click', onConnect);
         };
         function sendChatMessageIfEnter(event) {
@@ -365,10 +385,23 @@
             })
           );
         }
+        function onBackgroundChanged() {
+          const index = background_combobox.selectedIndex;
+          const option = background_combobox.options[index];
+          if (!option) return;
+          websocket.send(
+            JSON.stringify({
+              type: 'background',
+              username: username,
+              url: option.value,
+            })
+          );
+        }
         control_input_field.addEventListener('keyup', showAnnouncementIfEnter);
         control_send_button.addEventListener('click', showAnnouncement);
         control_lock_checkbox.addEventListener('change', onControlLockChanged);
         room_lock_checkbox.addEventListener('change', onRoomLockChanged);
+        background_combobox.addEventListener('change', onBackgroundChanged);
         username_field.removeEventListener('keyup', onConnectIfEnter);
         connect_button.removeEventListener('click', onConnect);
       }
