@@ -271,21 +271,22 @@
             control_lock_checkbox.checked = data.is_control_locked;
             room_lock_checkbox.checked = data.is_all_locked;
             let computed_html = '<option value="">No background</option>\n';
-            for (const choice of data.video_choices) {
-              const is_selected = choice.url === data.video ? 'selected' : '';
+            for (const choice of data.background_choices) {
+              const is_selected =
+                choice.url === data.background ? 'selected' : '';
               computed_html += `<option value="${choice.url}" ${is_selected}>${choice.name}</option>\n`;
             }
             background_combobox.innerHTML = computed_html;
-            if (!data.video) {
+            if (!data.background) {
               last_video = '';
               video_screen.pause();
               video_screen.src = '';
               video_screen.style.display = 'none';
               return;
             }
-            if (last_video !== data.video) {
-              last_video = data.video;
-              video_screen.src = data.video;
+            if (last_video !== data.background) {
+              last_video = data.background;
+              video_screen.src = data.background;
               video_screen.style.display = 'block';
               video_screen.play();
               return;

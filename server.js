@@ -152,8 +152,8 @@ function roomStatus(room_data) {
     type: 'status',
     is_control_locked: room_data.is_control_locked,
     is_all_locked: room_data.is_all_locked,
-    video: room_data.background,
-    video_choices: background_list.map((b) => ({
+    background: room_data.background,
+    background_choices: background_list.map((b) => ({
       name: b.display_name,
       url: b.url_path,
     })),

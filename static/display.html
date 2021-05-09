@@ -155,16 +155,15 @@
             return;
           }
           if (data.type === 'status') {
-            if (!data.video) {
+            if (!data.background) {
               last_video = '';
               video_screen.pause();
-              video_screen.src = '';
               video_screen.style.display = 'none';
               return;
             }
-            if (last_video !== data.video) {
-              last_video = data.video;
-              video_screen.src = data.video;
+            if (last_video !== data.background) {
+              last_video = data.background;
+              video_screen.src = data.background;
               video_screen.style.display = 'block';
               video_screen.play();
               return;
