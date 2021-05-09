@@ -14,15 +14,33 @@ fs.watchFile('static/display.html', { interval: 1000 }, () => {
   display_webpage = fs.readFileSync('static/display.html');
 });
 
+const background_directory = 'background';
+let default_video_path = null;
+let background_list = [];
+function reloadBackgroundDirectory() {
+  console.log('Reloaded background files');
+  background_list.length = 0;
+  const file_list = fs.readdirSync(background_directory);
+  for (const file_name of file_list) {
+    if (!file_name.endsWith('.mp4')) continue;
+    const display_name = file_name.slice(0, -4);
+    background_list.push({
+      display_name: display_name,
+      url_path: `/room/$background/${file_name}`,
+      file_name: file_name,
+      file_path: `${background_directory}/${file_name}`,
+    });
+  }
+  default_video_path = background_list[0] ? background_list[0].url_path : null;
+}
+fs.watch(background_directory, { recursive: false }, reloadBackgroundDirectory);
+reloadBackgroundDirectory();
+
 let control_webpage = fs.readFileSync('static/control.html');
 fs.watchFile('static/control.html', { interval: 1000 }, () => {
   console.log('Reloaded control.html');
   control_webpage = fs.readFileSync('static/control.html');
 });
-
-const default_background_name = fs
-  .readdirSync('background')
-  .filter((f) => f.endsWith('.mp4'))[0];
 
 /** @type {{
   [key: string]: {
@@ -37,52 +55,68 @@ const default_background_name = fs
 const rooms = {};
 
 const valid_username_regex = /^[\w ()]{0,32}$/;
-const image_url_regex = /^\/room\/\$background\/([\w]{1,64}\.mp4)$/;
+const background_url_regex = /^\/room\/\$background\/([\w]{1,64}\.mp4)$/;
 const base_room_url_regex = /^\/room\/(\w{1,64})\/?$/;
 const control_room_url_regex = /^\/room\/(\w{1,64})\/control$/;
 const room_websocket_url_regex = /^\/room\/(\w{1,64})\/websocket$/;
 
-function roomStatus(room_data) {
-  return {
-    type: 'status',
-    is_control_locked: room_data.is_control_locked,
-    is_all_locked: room_data.is_all_locked,
-    video: room_data.video,
-  };
+function handleBackgroundRequest(filename, request, response) {
+  const file_path = `${background_directory}/${filename}`;
+  fs.access(file_path, (err) => {
+    if (err) {
+      console.log(`Request received: ${request.url}. Sending 404.`);
+      response.writeHead(404);
+      response.end();
+      return;
+    }
+    fs.stat(file_path, (err, file_info) => {
+      if (err) {
+        console.log(`Request received: ${request.url}. Sending 404.`);
+        response.writeHead(404);
+        response.end();
+        return;
+      }
+      const range = request.headers.range;
+      if (range) {
+        const parts = range.replace(/bytes=/, '').split('-');
+        const start = parseInt(parts[0], 10);
+        const end = parts[1] ? parseInt(parts[1], 10) : file_info.size - 1;
+        const chunksize = end - start + 1;
+        const file_stream = fs.createReadStream(file_path, {
+          start: start,
+          end: end,
+        });
+        console.log(
+          `Request received: ${request.url} with range ${start}-${end}. Sending file.`
+        );
+        response.writeHead(206, {
+          'Content-Range': `bytes ${start}-${end}/${file_info.size}`,
+          'Accept-Ranges': 'bytes',
+          'Content-Length': chunksize,
+          'Content-Type': 'video/mp4',
+        });
+        file_stream.pipe(response);
+        return;
+      } else {
+        res.writeHead(200, {
+          'Content-Length': file_info.size,
+          'Content-Type': 'video/mp4',
+        });
+        console.log(`Request received: ${request.url}. Sending file.`);
+        const file_stream = fs.createReadStream(file_path);
+        file_stream.pipe(res);
+        return;
+      }
+    });
+  });
 }
 
 const server = HTTPServer.createServer((request, response) => {
-  const image_url_result = image_url_regex.exec(request.url);
-  if (image_url_result) {
-    const filename = image_url_result[1];
-    const range = request.headers.range;
-    const fileInfo = fs.statSync(`background/${filename}`);
-    if (range) {
-      const parts = range.replace(/bytes=/, '').split('-');
-      const start = parseInt(parts[0], 10);
-      const end = parts[1] ? parseInt(parts[1], 10) : fileInfo.size - 1;
-      const chunksize = end - start + 1;
-      const fileStream = fs.createReadStream(`background/${filename}`, {
-        start: start,
-        end: end,
-      });
-      response.writeHead(206, {
-        'Content-Range': `bytes ${start}-${end}/${fileInfo.size}`,
-        'Accept-Ranges': 'bytes',
-        'Content-Length': chunksize,
-        'Content-Type': 'video/mp4',
-      });
-      fileStream.pipe(response);
-      return;
-    } else {
-      res.writeHead(200, {
-        'Content-Length': fileInfo.size,
-        'Content-Type': 'video/mp4',
-      });
-      const fileStream = fs.createReadStream(`background/${filename}`);
-      fileStream.pipe(res);
-      return;
-    }
+  const background_url_result = background_url_regex.exec(request.url);
+  if (background_url_result) {
+    const filename = background_url_result[1];
+    handleBackgroundRequest(filename, request, response);
+    return;
   }
   const control_room_url_result = control_room_url_regex.exec(request.url);
   if (control_room_url_result) {
@@ -110,6 +144,19 @@ const server = HTTPServer.createServer((request, response) => {
   response.end();
   return;
 });
+
+function roomStatus(room_data) {
+  return {
+    type: 'status',
+    is_control_locked: room_data.is_control_locked,
+    is_all_locked: room_data.is_all_locked,
+    video: room_data.video,
+    video_choices: background_list.map((b) => ({
+      name: b.display_name,
+      url: b.url_path,
+    })),
+  };
+}
 
 function handleUserLogin(room_data, user_info, room_name, data, ws) {
   if (user_info) return user_info;
@@ -265,9 +312,7 @@ websocket.on('connection', (ws, socket) => {
       connections: [],
       is_control_locked: false,
       is_all_locked: false,
-      video: default_background_name
-        ? `/room/$background/${default_background_name}`
-        : null,
+      video: default_video_path,
     };
   }
   const room_data = rooms[room_name];
