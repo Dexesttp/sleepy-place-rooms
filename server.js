@@ -166,6 +166,7 @@ function getRoomStatus(room_data) {
     type: 'status',
     is_control_locked: room_data.is_control_locked,
     is_all_locked: room_data.is_all_locked,
+    users: room_data.users,
     background: room_data.background,
     background_choices: background_list.map((b) => ({
       name: b.display_name,
@@ -247,9 +248,6 @@ function handleUserLogin(room_data, user_info, room_name, data, ws) {
     `[${room_name}/$login] Registered successfully: ${data.username}`
   );
   for (const connection of room_data.connections) {
-    connection.send(
-      JSON.stringify({ type: 'user_list', users: room_data.users })
-    );
     connection.send(JSON.stringify(getRoomStatus(room_data)));
   }
   return user_info;
@@ -347,9 +345,6 @@ function handleUserDisconnect(room_data, user_info, room_name, ws) {
   room_data.is_all_locked = room_data.is_all_locked && still_control;
   // Notify all remaining connections of the new user list and status
   for (const connection of room_data.connections) {
-    connection.send(
-      JSON.stringify({ type: 'user_list', users: room_data.users })
-    );
     connection.send(JSON.stringify(getRoomStatus(room_data)));
   }
   // If the room is empty, remove the room from the global rooms.

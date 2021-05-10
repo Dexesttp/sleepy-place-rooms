@@ -269,6 +269,11 @@
             return;
           }
           if (data.type === 'status') {
+            if (!showedConnectionMessage) {
+              addMessageToChat('[connected to live feed]');
+              showedConnectionMessage = true;
+            }
+            updateUserList(data.users);
             control_lock_checkbox.checked = data.is_control_locked;
             room_lock_checkbox.checked = data.is_all_locked;
             let computed_html = '<option value="">No background</option>\n';
@@ -292,14 +297,6 @@
               video_screen.play();
               return;
             }
-            return;
-          }
-          if (data.type === 'user_list') {
-            if (!showedConnectionMessage) {
-              addMessageToChat('[connected to live feed]');
-              showedConnectionMessage = true;
-            }
-            updateUserList(data.users);
             return;
           }
           if (data.type === 'message') {
