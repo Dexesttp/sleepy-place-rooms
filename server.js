@@ -147,7 +147,21 @@ const server = HTTPServer.createServer((request, response) => {
   return;
 });
 
-function roomStatus(room_data) {
+function getOrCreateRoom(room_name) {
+  if (!rooms[room_name]) {
+    rooms[room_name] = {
+      name: room_name,
+      users: [],
+      connections: [],
+      is_control_locked: false,
+      is_all_locked: false,
+      background: default_background_path,
+    };
+  }
+  return rooms[room_name];
+}
+
+function getRoomStatus(room_data) {
   return {
     type: 'status',
     is_control_locked: room_data.is_control_locked,
@@ -236,7 +250,7 @@ function handleUserLogin(room_data, user_info, room_name, data, ws) {
     connection.send(
       JSON.stringify({ type: 'user_list', users: room_data.users })
     );
-    connection.send(JSON.stringify(roomStatus(room_data)));
+    connection.send(JSON.stringify(getRoomStatus(room_data)));
   }
   return user_info;
 }
@@ -280,7 +294,7 @@ function handleUserSetControlLock(room_data, user_info, room_name, data, ws) {
   );
   room_data.is_control_locked = !!data.value;
   for (const connection of room_data.connections) {
-    connection.send(JSON.stringify(roomStatus(room_data)));
+    connection.send(JSON.stringify(getRoomStatus(room_data)));
   }
 }
 
@@ -292,7 +306,7 @@ function handleUserSetRoomLock(room_data, user_info, room_name, data, ws) {
   );
   room_data.is_all_locked = !!data.value;
   for (const connection of room_data.connections) {
-    connection.send(JSON.stringify(roomStatus(room_data)));
+    connection.send(JSON.stringify(getRoomStatus(room_data)));
   }
 }
 
@@ -315,7 +329,33 @@ function handleUserSetBackground(room_data, user_info, room_name, data, ws) {
     room_data.background = null;
   }
   for (const connection of room_data.connections) {
-    connection.send(JSON.stringify(roomStatus(room_data)));
+    connection.send(JSON.stringify(getRoomStatus(room_data)));
+  }
+}
+
+function handleUserDisconnect(room_data, user_info, room_name, ws) {
+  console.log(
+    `[${room_name}/$close] Client ${user_info.username} disconnected`
+  );
+  room_data.connections = room_data.connections.filter((c) => c != ws);
+  room_data.users = room_data.users.filter(
+    (u) => u.username != user_info.username
+  );
+  // Unlock the room if there's no controller left
+  const still_control = room_data.users.some((u) => u.mode === 'control');
+  room_data.is_control_locked = room_data.is_control_locked && still_control;
+  room_data.is_all_locked = room_data.is_all_locked && still_control;
+  // Notify all remaining connections of the new user list and status
+  for (const connection of room_data.connections) {
+    connection.send(
+      JSON.stringify({ type: 'user_list', users: room_data.users })
+    );
+    connection.send(JSON.stringify(getRoomStatus(room_data)));
+  }
+  // If the room is empty, remove the room from the global rooms.
+  if (!room_data.connections.length) {
+    console.log(`[${room_name}/$close] Room is empty, deleting room storage`);
+    delete rooms[room_name];
   }
 }
 
@@ -332,17 +372,7 @@ websocket.on('connection', (ws, socket) => {
     return;
   }
   const room_name = room_websocket_url_result[1];
-  if (!rooms[room_name]) {
-    rooms[room_name] = {
-      name: room_name,
-      users: [],
-      connections: [],
-      is_control_locked: false,
-      is_all_locked: false,
-      background: default_background_path,
-    };
-  }
-  const room_data = rooms[room_name];
+  const room_data = getOrCreateRoom(room_name);
   let user_info = null;
 
   console.log(`[${room_name}/$connection] Client connected`);
@@ -380,21 +410,7 @@ websocket.on('connection', (ws, socket) => {
       console.log(`[${room_name}/$close] Non-logged in client disconnected`);
       return;
     }
-    console.log(
-      `[${room_name}/$close] Client ${user_info.username} disconnected`
-    );
-    room_data.connections = room_data.connections.filter((c) => c != ws);
-    room_data.users = room_data.users.filter(
-      (u) => u.username != user_info.username
-    );
-    const still_control = room_data.users.some((u) => u.mode === 'control');
-    room_data.is_control_locked = room_data.is_control_locked && still_control;
-    room_data.is_all_locked = room_data.is_all_locked && still_control;
-    for (const connection of room_data.connections) {
-      connection.send(
-        JSON.stringify({ type: 'user_list', users: room_data.users })
-      );
-    }
+    handleUserDisconnect(room_data, user_info, room_name, ws);
   });
 });
 
