@@ -1,28 +1,28 @@
-const fs = require('fs');
-const HTTPServer = require('http');
-const WebSocket = require('ws');
+const fs = require("fs");
+const HTTPServer = require("http");
+const WebSocket = require("ws");
 
-let index_webpage = fs.readFileSync('static/index.html');
-fs.watchFile('static/index.html', { interval: 1000 }, () => {
-  console.log('Reloaded index.html');
-  index_webpage = fs.readFileSync('static/index.html');
+let index_webpage = fs.readFileSync("static/index.html");
+fs.watchFile("static/index.html", { interval: 1000 }, () => {
+  console.log("Reloaded index.html");
+  index_webpage = fs.readFileSync("static/index.html");
 });
 
-let display_webpage = fs.readFileSync('static/display.html');
-fs.watchFile('static/display.html', { interval: 1000 }, () => {
-  console.log('Reloaded display.html');
-  display_webpage = fs.readFileSync('static/display.html');
+let display_webpage = fs.readFileSync("static/display.html");
+fs.watchFile("static/display.html", { interval: 1000 }, () => {
+  console.log("Reloaded display.html");
+  display_webpage = fs.readFileSync("static/display.html");
 });
 
-const background_directory = 'background';
+const background_directory = "background";
 let default_background_path = null;
 let background_list = [];
 function reloadBackgroundDirectory() {
-  console.log('Reloaded background files');
+  console.log("Reloaded background files");
   background_list.length = 0;
   const file_list = fs.readdirSync(background_directory);
   for (const file_name of file_list) {
-    if (!file_name.endsWith('.mp4') && !file_name.endsWith('.gif')) continue;
+    if (!file_name.endsWith(".mp4") && !file_name.endsWith(".gif")) continue;
     const display_name = file_name.slice(0, -4);
     background_list.push({
       display_name: display_name,
@@ -38,10 +38,10 @@ function reloadBackgroundDirectory() {
 fs.watch(background_directory, { recursive: false }, reloadBackgroundDirectory);
 reloadBackgroundDirectory();
 
-let control_webpage = fs.readFileSync('static/control.html');
-fs.watchFile('static/control.html', { interval: 1000 }, () => {
-  console.log('Reloaded control.html');
-  control_webpage = fs.readFileSync('static/control.html');
+let control_webpage = fs.readFileSync("static/control.html");
+fs.watchFile("static/control.html", { interval: 1000 }, () => {
+  console.log("Reloaded control.html");
+  control_webpage = fs.readFileSync("static/control.html");
 });
 
 /** @type {{
@@ -60,7 +60,8 @@ fs.watchFile('static/control.html', { interval: 1000 }, () => {
 const rooms = {};
 
 const valid_username_regex = /^[\w ()]{0,32}$/;
-const background_url_regex = /^\/room\/\$background\/([\w-]{1,64}(?:\.mp4|\.gif))$/;
+const background_url_regex =
+  /^\/room\/\$background\/([\w-]{1,64}(?:\.mp4|\.gif))$/;
 const base_room_url_regex = /^\/room\/(\w{1,64})\/?$/;
 const control_room_url_regex = /^\/room\/(\w{1,64})\/control$/;
 const room_websocket_url_regex = /^\/room\/(\w{1,64})\/websocket$/;
@@ -75,8 +76,10 @@ function handleBackgroundRequest(filename, request, response) {
       return;
     }
     fs.stat(file_path, (err, file_info) => {
-      const content_type = file_path.endsWith(".mp4") ? "video/mp4"
-        : file_path.endsWith(".gif") ? "image/gif"
+      const content_type = file_path.endsWith(".mp4")
+        ? "video/mp4"
+        : file_path.endsWith(".gif")
+        ? "image/gif"
         : "text/plain";
       if (err) {
         console.log(`Request received: ${request.url}. Sending 404.`);
@@ -86,7 +89,7 @@ function handleBackgroundRequest(filename, request, response) {
       }
       const range = request.headers.range;
       if (range) {
-        const parts = range.replace(/bytes=/, '').split('-');
+        const parts = range.replace(/bytes=/, "").split("-");
         const start = parseInt(parts[0], 10);
         const end = parts[1] ? parseInt(parts[1], 10) : file_info.size - 1;
         const chunksize = end - start + 1;
@@ -98,17 +101,17 @@ function handleBackgroundRequest(filename, request, response) {
           `Request received: ${request.url} with range ${start}-${end}. Sending file.`
         );
         response.writeHead(206, {
-          'Content-Range': `bytes ${start}-${end}/${file_info.size}`,
-          'Accept-Ranges': 'bytes',
-          'Content-Length': chunksize,
-          'Content-Type': content_type,
+          "Content-Range": `bytes ${start}-${end}/${file_info.size}`,
+          "Accept-Ranges": "bytes",
+          "Content-Length": chunksize,
+          "Content-Type": content_type,
         });
         file_stream.pipe(response);
         return;
       } else {
         response.writeHead(200, {
-          'Content-Length': file_info.size,
-          'Content-Type': content_type,
+          "Content-Length": file_info.size,
+          "Content-Type": content_type,
         });
         console.log(`Request received: ${request.url}. Sending file.`);
         const file_stream = fs.createReadStream(file_path);
@@ -164,7 +167,7 @@ function getOrCreateRoom(room_name) {
       background: {
         url: default_background_path,
         is_trusted: true,
-      }
+      },
     };
   }
   return rooms[room_name];
@@ -172,7 +175,7 @@ function getOrCreateRoom(room_name) {
 
 function getRoomStatus(room_data) {
   return {
-    type: 'status',
+    type: "status",
     is_control_locked: room_data.is_control_locked,
     is_all_locked: room_data.is_all_locked,
     users: room_data.users,
@@ -189,11 +192,11 @@ function getRoomStatus(room_data) {
 
 function handleUserLogin(room_data, user_info, room_name, data, ws) {
   if (user_info) return user_info;
-  if (data.mode !== 'display' && data.mode !== 'control') {
+  if (data.mode !== "display" && data.mode !== "control") {
     console.log(`[${room_name}/$login] Invalid proposed access mode`);
     ws.send(
       JSON.stringify({
-        type: 'login_rejected',
+        type: "login_rejected",
         reason: "Access can only be granted as 'display' or 'control'",
         username: data.username,
       })
@@ -201,15 +204,15 @@ function handleUserLogin(room_data, user_info, room_name, data, ws) {
     ws.close();
     return null;
   }
-  if (data.mode === 'control') {
+  if (data.mode === "control") {
     if (room_data.is_control_locked) {
       console.log(
         `[${room_name}/$login] Invalid control access to locked room`
       );
       ws.send(
         JSON.stringify({
-          type: 'login_rejected',
-          reason: 'The room is locked',
+          type: "login_rejected",
+          reason: "The room is locked",
           username: data.username,
         })
       );
@@ -221,8 +224,8 @@ function handleUserLogin(room_data, user_info, room_name, data, ws) {
     console.log(`[${room_name}/$login] Invalid access attempt to locked room`);
     ws.send(
       JSON.stringify({
-        type: 'login_rejected',
-        reason: 'The room is locked',
+        type: "login_rejected",
+        reason: "The room is locked",
         username: data.username,
       })
     );
@@ -233,8 +236,8 @@ function handleUserLogin(room_data, user_info, room_name, data, ws) {
     console.log(`[${room_name}/$login] Invalid proposed username`);
     ws.send(
       JSON.stringify({
-        type: 'login_rejected',
-        reason: 'The username contains invalid characters',
+        type: "login_rejected",
+        reason: "The username contains invalid characters",
         username: data.username,
       })
     );
@@ -245,8 +248,8 @@ function handleUserLogin(room_data, user_info, room_name, data, ws) {
     console.log(`[${room_name}/$login] Duplicate username: ${data.username}`);
     ws.send(
       JSON.stringify({
-        type: 'login_rejected',
-        reason: 'This username is already in use',
+        type: "login_rejected",
+        reason: "This username is already in use",
         username: data.username,
       })
     );
@@ -271,7 +274,7 @@ function handleUserSendMessage(room_data, user_info, room_name, data, ws) {
   for (const connection of room_data.connections) {
     connection.send(
       JSON.stringify({
-        type: 'message',
+        type: "message",
         username: data.username,
         message: data.message,
       })
@@ -281,14 +284,14 @@ function handleUserSendMessage(room_data, user_info, room_name, data, ws) {
 
 function handleUserSendAnnouncement(room_data, user_info, room_name, data, ws) {
   if (data.username !== user_info.username) return;
-  if (user_info.mode !== 'control') return;
+  if (user_info.mode !== "control") return;
   console.log(
     `[${room_name}/$announcement] ${data.username} sent ${data.message}`
   );
   for (const connection of room_data.connections) {
     connection.send(
       JSON.stringify({
-        type: 'announcement',
+        type: "announcement",
         username: data.username,
         message: data.message,
       })
@@ -298,7 +301,7 @@ function handleUserSendAnnouncement(room_data, user_info, room_name, data, ws) {
 
 function handleUserSetControlLock(room_data, user_info, room_name, data, ws) {
   if (data.username !== user_info.username) return;
-  if (user_info.mode !== 'control') return;
+  if (user_info.mode !== "control") return;
   console.log(
     `[${room_name}/$control_lock] ${data.username} set lock = ${!!data.value}`
   );
@@ -310,7 +313,7 @@ function handleUserSetControlLock(room_data, user_info, room_name, data, ws) {
 
 function handleUserSetRoomLock(room_data, user_info, room_name, data, ws) {
   if (data.username !== user_info.username) return;
-  if (user_info.mode !== 'control') return;
+  if (user_info.mode !== "control") return;
   console.log(
     `[${room_name}/$room_lock] ${data.username} set lock = ${!!data.value}`
   );
@@ -322,7 +325,7 @@ function handleUserSetRoomLock(room_data, user_info, room_name, data, ws) {
 
 function handleUserSetBackground(room_data, user_info, room_name, data, ws) {
   if (data.username !== user_info.username) return;
-  if (user_info.mode !== 'control') return;
+  if (user_info.mode !== "control") return;
   if (data.url) {
     const bg_info = background_list.find((b) => b.url_path === data.url);
     if (!bg_info) {
@@ -362,7 +365,7 @@ function handleUserDisconnect(room_data, user_info, room_name, ws) {
     (u) => u.username != user_info.username
   );
   // Unlock the room if there's no controller left
-  const still_control = room_data.users.some((u) => u.mode === 'control');
+  const still_control = room_data.users.some((u) => u.mode === "control");
   room_data.is_control_locked = room_data.is_control_locked && still_control;
   room_data.is_all_locked = room_data.is_all_locked && still_control;
   // Notify all remaining connections of the new user list and status
@@ -377,9 +380,9 @@ function handleUserDisconnect(room_data, user_info, room_name, ws) {
 }
 
 const websocket = new WebSocket.Server({ noServer: true });
-websocket.on('connection', (ws, socket) => {
+websocket.on("connection", (ws, socket) => {
   ws.isAlive = true;
-  ws.on('pong', () => {
+  ws.on("pong", () => {
     ws.isAlive = true;
   });
   const room_websocket_url_result = room_websocket_url_regex.exec(socket.url);
@@ -393,36 +396,36 @@ websocket.on('connection', (ws, socket) => {
   let user_info = null;
 
   console.log(`[${room_name}/$connection] Client connected`);
-  ws.on('message', (raw_data) => {
+  ws.on("message", (raw_data) => {
     const data = JSON.parse(raw_data);
-    if (data.type == 'user_login') {
+    if (data.type == "user_login") {
       user_info = handleUserLogin(room_data, user_info, room_name, data, ws);
       return;
     }
 
     if (!user_info) return;
-    if (data.type === 'message') {
+    if (data.type === "message") {
       handleUserSendMessage(room_data, user_info, room_name, data, ws);
       return;
     }
-    if (data.type === 'announcement') {
+    if (data.type === "announcement") {
       handleUserSendAnnouncement(room_data, user_info, room_name, data, ws);
       return;
     }
-    if (data.type === 'control_lock') {
+    if (data.type === "control_lock") {
       handleUserSetControlLock(room_data, user_info, room_name, data, ws);
       return;
     }
-    if (data.type === 'room_lock') {
+    if (data.type === "room_lock") {
       handleUserSetRoomLock(room_data, user_info, room_name, data, ws);
       return;
     }
-    if (data.type === 'background') {
+    if (data.type === "background") {
       handleUserSetBackground(room_data, user_info, room_name, data, ws);
       return;
     }
   });
-  ws.on('close', () => {
+  ws.on("close", () => {
     if (!user_info) {
       console.log(`[${room_name}/$close] Non-logged in client disconnected`);
       return;
@@ -439,10 +442,10 @@ setInterval(() => {
   });
 }, 30000);
 
-server.on('upgrade', (request, socket, head) => {
+server.on("upgrade", (request, socket, head) => {
   if (room_websocket_url_regex.test(request.url)) {
     websocket.handleUpgrade(request, socket, head, (ws) => {
-      websocket.emit('connection', ws, request);
+      websocket.emit("connection", ws, request);
     });
     return;
   }
@@ -450,8 +453,8 @@ server.on('upgrade', (request, socket, head) => {
   socket.destroy();
 });
 
-server.on('listening', () => {
+server.on("listening", () => {
   console.log(`Server started at http://localhost:18029/room/`);
 });
 
-server.listen(18029, 'localhost');
+server.listen(18029, "localhost");

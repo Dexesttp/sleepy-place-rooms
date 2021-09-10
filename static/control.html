@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Sleepy place room</title>
     <style>
       body {
@@ -17,7 +17,7 @@
         color: #ccc;
       }
 
-      input[type='text'],
+      input[type="text"],
       button {
         margin: 2px;
         padding: 2px;
@@ -173,34 +173,34 @@
       </div>
     </div>
     <script type="application/javascript">
-      'use strict';
-      const connection_field = document.getElementById('connection');
-      const room_name_field = document.getElementById('room-name');
-      const username_field = document.getElementById('username');
-      const login_error_field = document.getElementById('login-error');
-      const connect_button = document.getElementById('connect');
+      "use strict";
+      const connection_field = document.getElementById("connection");
+      const room_name_field = document.getElementById("room-name");
+      const username_field = document.getElementById("username");
+      const login_error_field = document.getElementById("login-error");
+      const connect_button = document.getElementById("connect");
       const room_content_items = Array.from(
-        document.getElementsByClassName('room-contents')
+        document.getElementsByClassName("room-contents")
       );
 
-      const chat_input_field = document.getElementById('chat-input');
-      const chat_send_button = document.getElementById('chat-send');
-      const chat_output_field = document.getElementById('chat-output');
-      const user_list = document.getElementById('user-list');
+      const chat_input_field = document.getElementById("chat-input");
+      const chat_send_button = document.getElementById("chat-send");
+      const chat_output_field = document.getElementById("chat-output");
+      const user_list = document.getElementById("user-list");
 
-      const video_screen = document.getElementById('video');
-      const gif_screen = document.getElementById('gif');
+      const video_screen = document.getElementById("video");
+      const gif_screen = document.getElementById("gif");
 
-      const control_input_field = document.getElementById('control-input');
-      const control_send_button = document.getElementById('control-send');
-      const screen_message_field = document.getElementById('screen-message');
+      const control_input_field = document.getElementById("control-input");
+      const control_send_button = document.getElementById("control-send");
+      const screen_message_field = document.getElementById("screen-message");
 
-      const control_lock_checkbox = document.getElementById('control-lock');
-      const room_lock_checkbox = document.getElementById('room-lock');
-      const background_combobox = document.getElementById('background-choices');
+      const control_lock_checkbox = document.getElementById("control-lock");
+      const room_lock_checkbox = document.getElementById("room-lock");
+      const background_combobox = document.getElementById("background-choices");
 
       function addMessageToChat(message) {
-        const message_content = document.createElement('div');
+        const message_content = document.createElement("div");
         message_content.innerText = message;
         chat_output_field.appendChild(message_content);
       }
@@ -208,22 +208,22 @@
       let message_timeout_value = 3000;
       let lastTimeout = -1;
       function showFadingAnnouncement(message) {
-        screen_message_field.style.opacity = '1.0';
+        screen_message_field.style.opacity = "1.0";
         screen_message_field.innerText = message;
         if (lastTimeout >= 0) {
           clearTimeout(lastTimeout);
         }
         lastTimeout = setTimeout(() => {
-          screen_message_field.style.opacity = '0.0';
+          screen_message_field.style.opacity = "0.0";
         }, message_timeout_value);
       }
 
       function updateUserList(users) {
-        user_list.innerHTML = '';
+        user_list.innerHTML = "";
         for (const user of users) {
-          const user_field = document.createElement('div');
-          user_field.className = 'user-entry';
-          if (user.mode === 'display') {
+          const user_field = document.createElement("div");
+          user_field.className = "user-entry";
+          if (user.mode === "display") {
             user_field.innerText = `👁 ${user.username}`;
           } else {
             user_field.innerText = user.username;
@@ -234,15 +234,15 @@
 
       const room_fragment = /^\/room\/(\w{1,64})\/control$/;
       const room_name_exec = room_fragment.exec(window.location.pathname);
-      const room_name = room_name_exec ? room_name_exec[1] : 'unknown';
+      const room_name = room_name_exec ? room_name_exec[1] : "unknown";
       room_name_field.textContent = `Control - Room '${room_name}'`;
       document.title = `${room_name} - Control - Sleepy Rooms`;
-      for (const item of room_content_items) item.style.display = 'none';
-      login_error_field.style.display = 'none';
+      for (const item of room_content_items) item.style.display = "none";
+      login_error_field.style.display = "none";
 
-      let last_background = '';
+      let last_background = "";
       function onConnectIfEnter(event) {
-        if (event.key === 'Enter') onConnect();
+        if (event.key === "Enter") onConnect();
       }
       function onConnect() {
         if (!username_field.value) {
@@ -252,34 +252,34 @@
         const username = username_field.value;
         connect_button.disabled = true;
         username_field.disabled = true;
-        login_error_field.style.display = 'none';
-        for (const item of room_content_items) item.style.display = 'block';
-        connection_field.className = '';
+        login_error_field.style.display = "none";
+        for (const item of room_content_items) item.style.display = "block";
+        connection_field.className = "";
         updateUserList([]);
 
         const websocket_protocol =
-          window.location.protocol == 'https:' ? 'wss://' : 'ws://';
+          window.location.protocol == "https:" ? "wss://" : "ws://";
         const websocket_url = `${websocket_protocol}${window.location.host}/room/${room_name}/websocket`;
         const websocket = new WebSocket(websocket_url);
         websocket.onopen = () => {
           websocket.send(
             JSON.stringify({
-              type: 'user_login',
+              type: "user_login",
               username: username,
-              mode: 'control',
+              mode: "control",
             })
           );
         };
         websocket.onmessage = (event) => {
           const data = JSON.parse(event.data);
-          if (data.type === 'login_rejected') {
+          if (data.type === "login_rejected") {
             login_error_field.innerHTML = data.reason;
-            login_error_field.style.display = 'block';
+            login_error_field.style.display = "block";
             return;
           }
-          if (data.type === 'status') {
+          if (data.type === "status") {
             if (!showedConnectionMessage) {
-              addMessageToChat('[connected to live feed]');
+              addMessageToChat("[connected to live feed]");
               showedConnectionMessage = true;
             }
             updateUserList(data.users);
@@ -287,47 +287,49 @@
             room_lock_checkbox.checked = data.is_all_locked;
             let computed_html = '<option value="">No background</option>\n';
             for (const choice of data.background_choices) {
-              const is_selected = data.background &&
-                choice.url === data.background.url ? 'selected' : '';
+              const is_selected =
+                data.background && choice.url === data.background.url
+                  ? "selected"
+                  : "";
               computed_html += `<option value="${choice.url}" ${is_selected}>${choice.name}</option>\n`;
             }
             background_combobox.innerHTML = computed_html;
             if (!data.background || !data.background.url) {
-              last_background = '';
+              last_background = "";
               video_screen.pause();
-              video_screen.src = '';
-              video_screen.style.display = 'none';
-              gif_screen.src = '';
-              gif_screen.style.display = 'none';
+              video_screen.src = "";
+              video_screen.style.display = "none";
+              gif_screen.src = "";
+              gif_screen.style.display = "none";
               return;
             }
             if (last_background !== data.background.url) {
               if (data.background.url.endsWith(".mp4")) {
                 last_background = data.background.url;
                 video_screen.src = data.background.url;
-                video_screen.style.display = 'block';
+                video_screen.style.display = "block";
                 video_screen.play();
-                gif_screen.src = '';
-                gif_screen.style.display = 'none';
+                gif_screen.src = "";
+                gif_screen.style.display = "none";
                 return;
               }
               if (data.background.url.endsWith(".gif")) {
                 last_background = data.background.url;
                 gif_screen.src = data.background.url;
-                gif_screen.style.display = 'block';
+                gif_screen.style.display = "block";
                 video_screen.pause();
-                video_screen.src = '';
-                video_screen.style.display = 'none';
+                video_screen.src = "";
+                video_screen.style.display = "none";
                 return;
               }
             }
             return;
           }
-          if (data.type === 'message') {
+          if (data.type === "message") {
             addMessageToChat(`[${data.username}] ${data.message}`);
             return;
           }
-          if (data.type === 'announcement') {
+          if (data.type === "announcement") {
             addMessageToChat(`[Announce>${data.username}] ${data.message}`);
             showFadingAnnouncement(data.message);
             return;
@@ -336,64 +338,64 @@
         websocket.onclose = () => {
           connect_button.disabled = false;
           username_field.disabled = false;
-          connection_field.className = 'connection-centered';
-          chat_output_field.innerHTML = '';
-          for (const item of room_content_items) item.style.display = 'none';
-          chat_send_button.removeEventListener('click', sendChatMessage);
-          chat_input_field.removeEventListener('keyup', sendChatMessageIfEnter);
+          connection_field.className = "connection-centered";
+          chat_output_field.innerHTML = "";
+          for (const item of room_content_items) item.style.display = "none";
+          chat_send_button.removeEventListener("click", sendChatMessage);
+          chat_input_field.removeEventListener("keyup", sendChatMessageIfEnter);
           control_input_field.removeEventListener(
-            'keyup',
+            "keyup",
             showAnnouncementIfEnter
           );
-          control_send_button.removeEventListener('click', showAnnouncement);
+          control_send_button.removeEventListener("click", showAnnouncement);
           control_lock_checkbox.removeEventListener(
-            'change',
+            "change",
             onControlLockChanged
           );
-          room_lock_checkbox.removeEventListener('change', onRoomLockChanged);
+          room_lock_checkbox.removeEventListener("change", onRoomLockChanged);
           background_combobox.removeEventListener(
-            'change',
+            "change",
             onBackgroundChanged
           );
-          username_field.addEventListener('keyup', onConnectIfEnter);
-          connect_button.addEventListener('click', onConnect);
-          connect_button.addEventListener('click', onConnect);
+          username_field.addEventListener("keyup", onConnectIfEnter);
+          connect_button.addEventListener("click", onConnect);
+          connect_button.addEventListener("click", onConnect);
         };
         function sendChatMessageIfEnter(event) {
-          if (event.key === 'Enter') sendChatMessage();
+          if (event.key === "Enter") sendChatMessage();
         }
         function sendChatMessage() {
           if (!chat_input_field.value) return;
           websocket.send(
             JSON.stringify({
-              type: 'message',
+              type: "message",
               username: username,
               message: chat_input_field.value,
             })
           );
-          chat_input_field.value = '';
+          chat_input_field.value = "";
         }
-        chat_input_field.addEventListener('keyup', sendChatMessageIfEnter);
-        chat_send_button.addEventListener('click', sendChatMessage);
+        chat_input_field.addEventListener("keyup", sendChatMessageIfEnter);
+        chat_send_button.addEventListener("click", sendChatMessage);
 
         function showAnnouncementIfEnter(event) {
-          if (event.key === 'Enter') showAnnouncement();
+          if (event.key === "Enter") showAnnouncement();
         }
         function showAnnouncement() {
           if (!control_input_field.value) return;
           websocket.send(
             JSON.stringify({
-              type: 'announcement',
+              type: "announcement",
               username: username,
               message: control_input_field.value,
             })
           );
-          control_input_field.value = '';
+          control_input_field.value = "";
         }
         function onControlLockChanged() {
           websocket.send(
             JSON.stringify({
-              type: 'control_lock',
+              type: "control_lock",
               username: username,
               value: !!control_lock_checkbox.checked,
             })
@@ -402,7 +404,7 @@
         function onRoomLockChanged() {
           websocket.send(
             JSON.stringify({
-              type: 'room_lock',
+              type: "room_lock",
               username: username,
               value: !!room_lock_checkbox.checked,
             })
@@ -414,22 +416,22 @@
           if (!option) return;
           websocket.send(
             JSON.stringify({
-              type: 'background',
+              type: "background",
               username: username,
               url: option.value,
             })
           );
         }
-        control_input_field.addEventListener('keyup', showAnnouncementIfEnter);
-        control_send_button.addEventListener('click', showAnnouncement);
-        control_lock_checkbox.addEventListener('change', onControlLockChanged);
-        room_lock_checkbox.addEventListener('change', onRoomLockChanged);
-        background_combobox.addEventListener('change', onBackgroundChanged);
-        username_field.removeEventListener('keyup', onConnectIfEnter);
-        connect_button.removeEventListener('click', onConnect);
+        control_input_field.addEventListener("keyup", showAnnouncementIfEnter);
+        control_send_button.addEventListener("click", showAnnouncement);
+        control_lock_checkbox.addEventListener("change", onControlLockChanged);
+        room_lock_checkbox.addEventListener("change", onRoomLockChanged);
+        background_combobox.addEventListener("change", onBackgroundChanged);
+        username_field.removeEventListener("keyup", onConnectIfEnter);
+        connect_button.removeEventListener("click", onConnect);
       }
-      username_field.addEventListener('keyup', onConnectIfEnter);
-      connect_button.addEventListener('click', onConnect);
+      username_field.addEventListener("keyup", onConnectIfEnter);
+      connect_button.addEventListener("click", onConnect);
     </script>
   </body>
 </html>
