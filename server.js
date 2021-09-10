@@ -333,16 +333,16 @@ function handleUserSetBackground(room_data, user_info, room_name, data, ws) {
       console.log(
         `[${room_name}/$background] ${data.username} set background = [DATA EXPUNGED] (untrusted)`
       );
-      room_data.background.url = null;
+      room_data.background.url = data.url;
       room_data.background.is_trusted = false;
-      return;
+    } else {
+      if (room_data.background === bg_info.url_path) return;
+      console.log(
+        `[${room_name}/$background] ${data.username} set background = ${bg_info.display_name}`
+      );
+      room_data.background.url = bg_info.url_path;
+      room_data.background.is_trusted = true;
     }
-    if (room_data.background === bg_info.url_path) return;
-    console.log(
-      `[${room_name}/$background] ${data.username} set background = ${bg_info.display_name}`
-    );
-    room_data.background.url = bg_info.url_path;
-    room_data.background.is_trusted = true;
   } else {
     if (!room_data.background) return;
     console.log(

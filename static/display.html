@@ -109,6 +109,8 @@
 
       const screen_message_field = document.getElementById("screen-message");
 
+      let has_allowed_untrusted_backgrounds = false;
+
       let message_timeout_value = 3000;
       let lastTimeout = -1;
       function showFadingAnnouncement(message) {
@@ -176,6 +178,23 @@
               gif_screen.style.display = "none";
               return;
             }
+
+            if (!has_allowed_untrusted_backgrounds) {
+              if (!data.background.is_trusted) {
+                const answer = window.confirm("Do you want to allow untrusted backgrounds?");
+                if (!answer) {
+                  last_background = "";
+                  video_screen.src = "";
+                  video_screen.pause();
+                  video_screen.style.display = "none";
+                  gif_screen.src = "";
+                  gif_screen.style.display = "none";
+                  return;
+                }
+                has_allowed_untrusted_backgrounds = true;
+              }
+            }
+
             if (last_background !== data.background.url) {
               if (data.background.url.endsWith(".mp4")) {
                 last_background = data.background.url;

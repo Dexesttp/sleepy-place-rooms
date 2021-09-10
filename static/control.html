@@ -168,6 +168,9 @@
           <select id="background-choices" name="background-choices">
             <option value="">No background</option>
           </select>
+          <br />
+          Or use a custom background via an URL (must be a gif or mp4):
+          <input id="background-custom" type="text" />
         </label>
         <br />
       </div>
@@ -198,6 +201,7 @@
       const control_lock_checkbox = document.getElementById("control-lock");
       const room_lock_checkbox = document.getElementById("room-lock");
       const background_combobox = document.getElementById("background-choices");
+      const background_custom = document.getElementById("background-custom");
 
       function addMessageToChat(message) {
         const message_content = document.createElement("div");
@@ -285,7 +289,15 @@
             updateUserList(data.users);
             control_lock_checkbox.checked = data.is_control_locked;
             room_lock_checkbox.checked = data.is_all_locked;
-            let computed_html = '<option value="">No background</option>\n';
+            const custom_bg_selected =
+              !data.background ||
+              (data.background.url && data.background.is_untrusted)
+                ? "selected "
+                : "";
+            const no_bg_selected =
+              !data.background || !data.background.url ? "selected " : "";
+            let computed_html = `<option ${custom_bg_selected}value="-">-</option>\n`;
+            computed_html += `<option ${no_bg_selected}value="">No background</option>\n`;
             for (const choice of data.background_choices) {
               const is_selected =
                 data.background && choice.url === data.background.url
@@ -294,6 +306,15 @@
               computed_html += `<option value="${choice.url}" ${is_selected}>${choice.name}</option>\n`;
             }
             background_combobox.innerHTML = computed_html;
+            if (
+              data.background &&
+              data.background.url &&
+              data.background.is_trusted
+            ) {
+              background_custom.value = "";
+            } else {
+              background_custom.value = data.background.url;
+            }
             if (!data.background || !data.background.url) {
               last_background = "";
               video_screen.pause();
@@ -356,6 +377,10 @@
           background_combobox.removeEventListener(
             "change",
             onBackgroundChanged
+          );
+          background_custom.removeEventListener(
+            "input",
+            onCustomBackgroundChanged
           );
           username_field.addEventListener("keyup", onConnectIfEnter);
           connect_button.addEventListener("click", onConnect);
@@ -422,11 +447,23 @@
             })
           );
         }
+        function onCustomBackgroundChanged() {
+          const new_url = background_custom.value;
+          if (!new_url) return;
+          websocket.send(
+            JSON.stringify({
+              type: "background",
+              username: username,
+              url: new_url,
+            })
+          );
+        }
         control_input_field.addEventListener("keyup", showAnnouncementIfEnter);
         control_send_button.addEventListener("click", showAnnouncement);
         control_lock_checkbox.addEventListener("change", onControlLockChanged);
         room_lock_checkbox.addEventListener("change", onRoomLockChanged);
         background_combobox.addEventListener("change", onBackgroundChanged);
+        background_custom.addEventListener("input", onCustomBackgroundChanged);
         username_field.removeEventListener("keyup", onConnectIfEnter);
         connect_button.removeEventListener("click", onConnect);
       }
