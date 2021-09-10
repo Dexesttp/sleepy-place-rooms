@@ -53,7 +53,15 @@
         align-items: center;
         justify-content: center;
       }
-      #screen > video {
+      #screen > #video {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        object-fit: cover;
+      }
+      #screen > #gif {
         position: fixed;
         top: 0;
         left: 0;
@@ -84,6 +92,7 @@
     </div>
     <div id="screen" class="room-contents">
       <video id="video" autoplay loop muted playsinline></video>
+      <img id="gif" />
       <div id="screen-message"></div>
     </div>
     <script type="application/javascript">
@@ -93,6 +102,7 @@
       const login_error_field = document.getElementById('login-error');
       const connect_button = document.getElementById('connect');
       const video_screen = document.getElementById('video');
+      const gif_screen = document.getElementById('gif');
       const room_content_items = Array.from(
         document.getElementsByClassName('room-contents')
       );
@@ -120,8 +130,9 @@
       for (const item of room_content_items) item.style.display = 'none';
       login_error_field.style.display = 'none';
       video_screen.style.display = 'none';
+      gif_screen.style.display = 'none';
 
-      let last_video = '';
+      let last_background = '';
       function onConnectIfEnter(event) {
         if (event.key === 'Enter') onConnect();
       }
@@ -156,18 +167,34 @@
             return;
           }
           if (data.type === 'status') {
-            if (!data.background) {
-              last_video = '';
+            if (!data.background || !data.background.url) {
+              last_background = '';
+              video_screen.src = '';
               video_screen.pause();
               video_screen.style.display = 'none';
+              gif_screen.src = '';
+              gif_screen.style.display = 'none';
               return;
             }
-            if (last_video !== data.background) {
-              last_video = data.background;
-              video_screen.src = data.background;
-              video_screen.style.display = 'block';
-              video_screen.play();
-              return;
+            if (last_background !== data.background.url) {
+              if (data.background.url.endsWith(".mp4")) {
+                last_background = data.background.url;
+                video_screen.src = data.background.url;
+                video_screen.style.display = 'block';
+                video_screen.play();
+                gif_screen.src = '';
+                gif_screen.style.display = 'none';
+                return;
+              }
+              if (data.background.url.endsWith(".gif")) {
+                last_background = data.background.url;
+                gif_screen.src = data.background.url;
+                gif_screen.style.display = 'block';
+                video_screen.pause();
+                video_screen.src = '';
+                video_screen.style.display = 'none';
+                return;
+              }
             }
             return;
           }

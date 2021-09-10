@@ -22,7 +22,7 @@ function reloadBackgroundDirectory() {
   background_list.length = 0;
   const file_list = fs.readdirSync(background_directory);
   for (const file_name of file_list) {
-    if (!file_name.endsWith('.mp4')) continue;
+    if (!file_name.endsWith('.mp4') && !file_name.endsWith('.gif')) continue;
     const display_name = file_name.slice(0, -4);
     background_list.push({
       display_name: display_name,
@@ -51,13 +51,16 @@ fs.watchFile('static/control.html', { interval: 1000 }, () => {
     connections: WebSocket[],
     is_control_locked: boolean,
     is_all_locked: boolean,
-    background: string | null,
+    background: {
+      url: string | null,
+      is_trusted: boolean,
+    },
   }
 }} */
 const rooms = {};
 
 const valid_username_regex = /^[\w ()]{0,32}$/;
-const background_url_regex = /^\/room\/\$background\/([\w]{1,64}\.mp4)$/;
+const background_url_regex = /^\/room\/\$background\/([\w-]{1,64}(?:\.mp4|\.gif))$/;
 const base_room_url_regex = /^\/room\/(\w{1,64})\/?$/;
 const control_room_url_regex = /^\/room\/(\w{1,64})\/control$/;
 const room_websocket_url_regex = /^\/room\/(\w{1,64})\/websocket$/;
@@ -72,6 +75,9 @@ function handleBackgroundRequest(filename, request, response) {
       return;
     }
     fs.stat(file_path, (err, file_info) => {
+      const content_type = file_path.endsWith(".mp4") ? "video/mp4"
+        : file_path.endsWith(".gif") ? "image/gif"
+        : "text/plain";
       if (err) {
         console.log(`Request received: ${request.url}. Sending 404.`);
         response.writeHead(404);
@@ -95,18 +101,18 @@ function handleBackgroundRequest(filename, request, response) {
           'Content-Range': `bytes ${start}-${end}/${file_info.size}`,
           'Accept-Ranges': 'bytes',
           'Content-Length': chunksize,
-          'Content-Type': 'video/mp4',
+          'Content-Type': content_type,
         });
         file_stream.pipe(response);
         return;
       } else {
-        res.writeHead(200, {
+        response.writeHead(200, {
           'Content-Length': file_info.size,
-          'Content-Type': 'video/mp4',
+          'Content-Type': content_type,
         });
         console.log(`Request received: ${request.url}. Sending file.`);
         const file_stream = fs.createReadStream(file_path);
-        file_stream.pipe(res);
+        file_stream.pipe(response);
         return;
       }
     });
@@ -155,7 +161,10 @@ function getOrCreateRoom(room_name) {
       connections: [],
       is_control_locked: false,
       is_all_locked: false,
-      background: default_background_path,
+      background: {
+        url: default_background_path,
+        is_trusted: true,
+      }
     };
   }
   return rooms[room_name];
@@ -167,7 +176,10 @@ function getRoomStatus(room_data) {
     is_control_locked: room_data.is_control_locked,
     is_all_locked: room_data.is_all_locked,
     users: room_data.users,
-    background: room_data.background,
+    background: {
+      url: room_data.background.url,
+      is_trusted: room_data.background.is_trusted,
+    },
     background_choices: background_list.map((b) => ({
       name: b.display_name,
       url: b.url_path,
@@ -313,18 +325,28 @@ function handleUserSetBackground(room_data, user_info, room_name, data, ws) {
   if (user_info.mode !== 'control') return;
   if (data.url) {
     const bg_info = background_list.find((b) => b.url_path === data.url);
-    if (!bg_info) return;
+    if (!bg_info) {
+      // This background doesn't come from the default list, and shouldn't be trusted.
+      console.log(
+        `[${room_name}/$background] ${data.username} set background = [DATA EXPUNGED] (untrusted)`
+      );
+      room_data.background.url = null;
+      room_data.background.is_trusted = false;
+      return;
+    }
     if (room_data.background === bg_info.url_path) return;
     console.log(
       `[${room_name}/$background] ${data.username} set background = ${bg_info.display_name}`
     );
-    room_data.background = bg_info.url_path;
+    room_data.background.url = bg_info.url_path;
+    room_data.background.is_trusted = true;
   } else {
     if (!room_data.background) return;
     console.log(
       `[${room_name}/$background] ${data.username} set background = null`
     );
-    room_data.background = null;
+    room_data.background.url = null;
+    room_data.background.is_trusted = true;
   }
   for (const connection of room_data.connections) {
     connection.send(JSON.stringify(getRoomStatus(room_data)));

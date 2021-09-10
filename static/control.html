@@ -95,6 +95,13 @@
         height: 30vh;
         object-fit: cover;
       }
+      #gif {
+        display: fixed;
+        position: fixed;
+        width: 40vw;
+        height: 30vh;
+        object-fit: cover;
+      }
       #screen {
         display: flex;
         align-items: center;
@@ -138,6 +145,7 @@
     <div id="right" class="room-contents">
       <div id="screen">
         <video id="video" autoplay loop muted playsinline></video>
+        <img id="gif" />
         <div id="screen-message"></div>
       </div>
       <div id="screen-controls">
@@ -181,6 +189,7 @@
       const user_list = document.getElementById('user-list');
 
       const video_screen = document.getElementById('video');
+      const gif_screen = document.getElementById('gif');
 
       const control_input_field = document.getElementById('control-input');
       const control_send_button = document.getElementById('control-send');
@@ -231,7 +240,7 @@
       for (const item of room_content_items) item.style.display = 'none';
       login_error_field.style.display = 'none';
 
-      let last_video = '';
+      let last_background = '';
       function onConnectIfEnter(event) {
         if (event.key === 'Enter') onConnect();
       }
@@ -278,24 +287,39 @@
             room_lock_checkbox.checked = data.is_all_locked;
             let computed_html = '<option value="">No background</option>\n';
             for (const choice of data.background_choices) {
-              const is_selected =
-                choice.url === data.background ? 'selected' : '';
+              const is_selected = data.background &&
+                choice.url === data.background.url ? 'selected' : '';
               computed_html += `<option value="${choice.url}" ${is_selected}>${choice.name}</option>\n`;
             }
             background_combobox.innerHTML = computed_html;
-            if (!data.background) {
-              last_video = '';
+            if (!data.background || !data.background.url) {
+              last_background = '';
               video_screen.pause();
               video_screen.src = '';
               video_screen.style.display = 'none';
+              gif_screen.src = '';
+              gif_screen.style.display = 'none';
               return;
             }
-            if (last_video !== data.background) {
-              last_video = data.background;
-              video_screen.src = data.background;
-              video_screen.style.display = 'block';
-              video_screen.play();
-              return;
+            if (last_background !== data.background.url) {
+              if (data.background.url.endsWith(".mp4")) {
+                last_background = data.background.url;
+                video_screen.src = data.background.url;
+                video_screen.style.display = 'block';
+                video_screen.play();
+                gif_screen.src = '';
+                gif_screen.style.display = 'none';
+                return;
+              }
+              if (data.background.url.endsWith(".gif")) {
+                last_background = data.background.url;
+                gif_screen.src = data.background.url;
+                gif_screen.style.display = 'block';
+                video_screen.pause();
+                video_screen.src = '';
+                video_screen.style.display = 'none';
+                return;
+              }
             }
             return;
           }
