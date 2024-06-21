@@ -15,6 +15,6 @@
   },
   "homepage": "https://github.com/dexesttp/sleepy-place-rooms#readme",
   "dependencies": {
-    "ws": "^7.4.5"
+    "ws": "^8.17.1"
   }
 }
